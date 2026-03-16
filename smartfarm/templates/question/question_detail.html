@@ -1,0 +1,45 @@
+
+{% extends 'base.html' %}
+{% block content %}
+<div class="container my-3">
+    <h2 class="border-bottom py-2">{{question.subject}}</h2>
+    <div class="card my-3">
+        <div class="card-body">
+            <div class="card-text" style="white-space: pre-line;">{{question.content}}</div>
+            <div class="text-end">
+                <div class="badge bg-light text-dark p-2">{{question.created_date}}</div>
+            </div>
+        </div>
+    </div>
+
+    <h5 class="border-bottom my-3 py-2">{{question.answers_set|length}} 개의 답변이 있습니다.</h5>
+    {% for answer in question.answers_set %}
+    <div class="card my-3">
+        <div class="card-body">
+            <div class="card-text" style="white-space: pre-line;">{{answer.content}}</div>
+            <div class="text-end">
+                <div class="badge bg-light text-dark p-2">{{answer.created_date}}</div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <form action="{{url_for('answer.create',question_id=question.id)}}" method="post" class="my-3">
+        {{form.csrf_token}}
+
+        {% for field, errors in form.errors.items() %}
+        <div class="alert alert-danger" role="alert">
+          <strong> {{form[field].label}}</strong>: {{','.join(errors) }}
+        </div>
+        {% endfor %}
+
+        <div class="form-group">
+            <label for="content"></label>
+            <textarea name="content" id="content" class="form-control" rows="10"></textarea>
+        </div>
+        <input type="submit" value="답변등록" class="btn btn-primary">
+        <button type="button" onclick="history.back()" class="btn">back</button>
+    </form>
+
+</div>
+{% endblock %}
