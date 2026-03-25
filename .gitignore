@@ -13,5 +13,7 @@ scripts/*.csv
 .env
 instance/
 
+.idea/
+
 .DS_Store
 Thumbs.db
