@@ -6,9 +6,7 @@ venv/
 .venv/
 env/
 
-data/*.csv
-data/*.xlsx
-scripts/*.csv
+data/**
 
 .env
 instance/
