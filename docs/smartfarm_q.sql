@@ -1,0 +1,764 @@
+SELECT 
+    ROUND(blooming_group - TRUNC(blooming_group), 2) AS group_decimal,
+    AVG(blooming_per_cluster) AS avg_flowers,
+    COUNT(*) AS case_count
+FROM GROWTH
+WHERE blooming_group IS NOT NULL 
+  AND blooming_per_cluster IS NOT NULL
+  AND inspect_date < TO_DATE('2022-01-01', 'YYYY-MM-DD')
+GROUP BY ROUND(blooming_group - TRUNC(blooming_group), 2)
+ORDER BY group_decimal;
+
+
+
+SELECT 
+    (SELECT COUNT(*) FROM ENVIRONMENT) as ORIGIN_COUNT,
+    (SELECT COUNT(*) FROM ENV_CLEANED) as CLEANED_COUNT
+FROM DUAL;
+
+SELECT COUNT(DISTINCT CULT_ID) as CLEANED_CULT_COUNT 
+FROM ENV_CLEANED;
+
+SELECT DISTINCT cult_id 
+FROM environment 
+WHERE cult_id NOT IN (SELECT DISTINCT cult_id FROM env_cleaned);
+
+SELECT COUNT(DISTINCT cult_id) FROM environment;
+
+SELECT * FROM SMART.KAMIS_TOMATO_PRICE ORDER BY PRICE_DATE DESC;
+
+
+
+
+SELECT 
+    A.MEASURE_TIME,
+    A.OUT_ACC_SOLAR_RAD AS RAW_ACC,
+    B.OUT_ACC_SOLAR_RAD AS NEW_ACC,
+    B.OUT_ACC_SOLAR_RAD_STATUS AS STATUS,
+    A.OUT_SOLAR_RAD AS RAW_SOLAR
+FROM ENVIRONMENT A, ENV_CLEANED B
+WHERE A.CULT_ID = B.CULT_ID
+  AND A.MEASURE_TIME = B.MEASURE_TIME
+  AND A.CULT_ID = 2
+  AND A.MEASURE_TIME >= TO_DATE('2019-05-24', 'YYYY-MM-DD')
+  AND A.MEASURE_TIME < TO_DATE('2019-05-25', 'YYYY-MM-DD')
+ORDER BY A.MEASURE_TIME DESC;
+
+
+
+
+SELECT 
+    COUNT(*) AS TOTAL_ROWS,
+    COUNT(PLANT_HEIGHT) AS HEIGHT_CNT,
+    COUNT(BLOOMING_GROUP) AS B_GRP_CNT,
+    COUNT(CLUSTER_NUM) AS CLSTR_CNT,
+    COUNT(FLOWERS_PER_CLUSTER) AS FLW_CNT,
+    ROUND((1 - (COUNT(FLOWERS_PER_CLUSTER) / COUNT(*))) * 100, 2) AS NULL_RATE
+FROM GROWTH;
+
+
+SELECT 
+    CULT_ID,
+    COUNT(*) AS ROW_CNT,
+    TO_CHAR(MIN(INSPECT_DATE), 'YYYY-MM-DD') AS START_DT,
+    TO_CHAR(MAX(INSPECT_DATE), 'YYYY-MM-DD') AS END_DT,
+    ROUND(AVG(FLOWERS_PER_CLUSTER), 2) AS AVG_FLW,
+    MAX(FLOWERS_PER_CLUSTER) AS MAX_FLW,
+    COUNT(DISTINCT PLANT_NUM) AS PLANT_QTY
+FROM GROWTH
+GROUP BY CULT_ID
+ORDER BY ROW_CNT DESC;
+
+
+
+SELECT LAST_NUMBER 
+FROM USER_SEQUENCES 
+WHERE SEQUENCE_NAME = 'SEQ_GROWCL_ID';
+
+DROP SEQUENCE SEQ_GROWCL_ID;
+CREATE SEQUENCE SEQ_GROWCL_ID START WITH 1 INCREMENT BY 1;
+
+TRUNCATE TABLE GROW_CLEANED;
+
+SELECT COUNT(*) FROM GROW_CLEANED;
+
+SELECT LAST_NUMBER 
+FROM USER_SEQUENCES 
+WHERE SEQUENCE_NAME = 'SEQ_GROWCL_ID';
+
+
+SELECT COUNT(*) AS TOTAL_COUNT FROM GROW_CLEANED;
+
+SELECT ORIGIN_TYPE, COUNT(*) 
+FROM GROW_CLEANED 
+GROUP BY ORIGIN_TYPE;
+
+SELECT 
+    COUNT(DISTINCT CULT_ID) AS "총 농가 수",
+    COUNT(DISTINCT GROWTH_ID) AS "연결된 원본 데이터 수",
+    COUNT(*) AS "전체 행 수"
+FROM GROW_CLEANED;
+
+
+SELECT CULT_ID, GROWTH_ID, FLOWERS_PER_CLUSTER, ORIGIN_TYPE
+FROM GROW_CLEANED
+WHERE (FLOWERS_PER_CLUSTER > 15 OR FLOWERS_PER_CLUSTER < 1)
+  AND ORIGIN_TYPE = 0 
+ORDER BY FLOWERS_PER_CLUSTER DESC;
+
+
+
+
+
+SELECT COUNT(*) FROM ENV_SUMMARY;
+
+
+SELECT 
+    (SELECT COUNT(*) FROM ENV_SUMMARY) as SUMMARY_COUNT,
+    (SELECT COUNT(DISTINCT CONCAT(CULT_ID, TRUNC(MEASURE_DATE))) FROM ENV_CLEANED) as CLEANED_GROUP_COUNT
+FROM DUAL;
+
+
+
+SELECT * FROM (
+    SELECT 
+        S.CULT_ID, 
+        S.MEASURE_DATE, 
+        C.PLANTING_DATE,
+        S.DAILY_IN_TEMP, 
+        S.ACC_TEMP, 
+        S.ACC_SOLAR
+    FROM ENV_SUMMARY S
+    JOIN CULTIVATIONS C ON S.CULT_ID = C.CULT_ID
+    ORDER BY S.CULT_ID, S.MEASURE_DATE
+) 
+WHERE ROWNUM <= 50;
+
+
+SELECT * FROM (
+    SELECT 
+        S.CULT_ID, 
+        S.MEASURE_DATE, 
+        C.PLANTING_DATE,
+        S.DAILY_IN_TEMP, 
+        S.ACC_TEMP, 
+        S.ACC_SOLAR
+    FROM ENV_SUMMARY S
+    JOIN CULTIVATIONS C ON S.CULT_ID = C.CULT_ID
+    ORDER BY S.CULT_ID, S.MEASURE_DATE
+) 
+WHERE ROWNUM <= 50;
+
+
+
+SELECT * FROM ENV_SUMMARY ORDER BY ENVSU_ID;
+
+
+DESC GROW_CLEANED;
+
+
+
+
+
+
+
+SELECT 
+    G.CULT_ID,
+    C.PLANTING_DATE AS "정식일",
+    G.INSPECT_DATE AS "조사일",
+    -- 날짜 차이 계산 (조사일 - 정식일)
+    (TRUNC(G.INSPECT_DATE) - TRUNC(C.PLANTING_DATE)) AS GROWTH_DAYS,
+    G.PLANT_NUM AS "객체번호",
+    G.CLUSTER_NUM AS "화방번호",
+    G.PLANT_HEIGHT AS "초고"
+FROM GROWTH G
+JOIN CULTIVATIONS C ON G.CULT_ID = C.CULT_ID
+WHERE G.CULT_ID = 203
+ORDER BY G.INSPECT_DATE;
+
+
+
+-- 1. 203번 농가의 기본 정보 및 마이너스 생육일수 상세 확인
+SELECT 
+    C.CULT_ID AS "농가번호",
+    C.PLANTING_DATE AS "정식일(A)",
+    G.INSPECT_DATE AS "기존조사일(B)",
+    -- 기존 계산 결과 (마이너스 발생)
+    (TRUNC(G.INSPECT_DATE) - TRUNC(C.PLANTING_DATE)) AS "현재_생육일수",
+    -- 연도 오류 가정 시 보정 결과 (+1년)
+    (TRUNC(ADD_MONTHS(G.INSPECT_DATE, 12)) - TRUNC(C.PLANTING_DATE)) AS "보정후_생육일수",
+    G.PLANT_NUM AS "개체",
+    G.CLUSTER_NUM AS "화방",
+    G.PLANT_HEIGHT AS "초고",
+    G.GROWTH_LENGTH AS "생장길이"
+FROM GROWTH G
+JOIN CULTIVATIONS C ON G.CULT_ID = C.CULT_ID
+WHERE G.CULT_ID = 203
+ORDER BY G.INSPECT_DATE, G.PLANT_NUM, G.CLUSTER_NUM;
+
+-- 2. 203번 농가의 재배 환경 설정 확인 (CULTIVATIONS 테이블 전체)
+SELECT * FROM CULTIVATIONS 
+WHERE CULT_ID = 203;
+
+-- 1. 농가 마스터 정보 및 재배 이력 전체 조회
+-- (어떤 품종을 언제 심었는지 전체 리스트 확인)
+SELECT 
+    F.FARM_ID,
+    F.FARM_NAME,
+    C.CULT_ID,
+    C.CROP_NAME AS "품종",
+    C.PLANTING_DATE AS "정식일",
+    C.AREA AS "면적",
+    C.GROW_TYPE AS "재배형태"
+FROM FARMS F
+JOIN CULTIVATIONS C ON F.FARM_ID = C.FARM_ID
+WHERE F.FARM_ID = 177
+ORDER BY C.PLANTING_DATE DESC;
+
+-- 2. 177번 농가(203번 포함)의 생육 조사 데이터 상세 분석
+-- (조사일과 정식일의 연도 차이를 집중적으로 확인)
+SELECT 
+    C.FARM_ID,
+    C.CULT_ID,
+    C.CROP_NAME,
+    C.PLANTING_DATE AS "정식일(A)",
+    G.INSPECT_DATE AS "조사일(B)",
+    -- 연도 차이 계산 (마이너스가 나오는지 확인)
+    EXTRACT(YEAR FROM G.INSPECT_DATE) - EXTRACT(YEAR FROM C.PLANTING_DATE) AS "연도차이",
+    (TRUNC(G.INSPECT_DATE) - TRUNC(C.PLANTING_DATE)) AS "현재_생육일수",
+    G.PLANT_HEIGHT AS "초고",
+    G.LEAF_COUNT AS "엽수"
+FROM CULTIVATIONS C
+JOIN GROWTH G ON C.CULT_ID = G.CULT_ID
+WHERE C.FARM_ID = 177
+ORDER BY G.INSPECT_DATE;
+
+DESC CULTIVATIONS;
+
+
+
+-- 1. 177번 농장의 재배 이력 전체 (어떤 품종이 있는지 확인)
+SELECT 
+    FARM_ID,
+    CULT_ID,
+    ITEM AS "품종",
+    ITEM_VARIETY AS "세부품종",
+    PLANTING_DATE AS "정식일",
+    HOUSE_TYPE,
+    SURVEY_YEAR
+FROM CULTIVATIONS
+WHERE FARM_ID = 177
+ORDER BY PLANTING_DATE DESC;
+
+-- 2. 203번 농가의 생육 데이터와 정식일 대조 (날짜 오류 집중 분석)
+SELECT 
+    C.FARM_ID,
+    C.CULT_ID,
+    C.ITEM,
+    C.PLANTING_DATE AS "정식일(A)",
+    G.INSPECT_DATE AS "조사일(B)",
+    -- 기존 계산 결과 (마이너스 확인)
+    (TRUNC(G.INSPECT_DATE) - TRUNC(C.PLANTING_DATE)) AS "현재_생육일수",
+    -- 1년 보정 시 결과 (+12개월)
+    (TRUNC(ADD_MONTHS(G.INSPECT_DATE, 12)) - TRUNC(C.PLANTING_DATE)) AS "보정후_생육일수",
+    G.PLANT_NUM,
+    G.PLANT_HEIGHT
+FROM CULTIVATIONS C
+JOIN GROWTH G ON C.CULT_ID = G.CULT_ID
+WHERE C.CULT_ID = 203
+ORDER BY G.INSPECT_DATE;
+
+
+SELECT FARM_NAME 
+FROM FARMS 
+WHERE FARM_ID = 177;
+
+
+WITH FIRST_GROWTH AS (
+    -- 생육 데이터의 첫 조사일자 추출
+    SELECT CULT_ID, MIN(INSPECT_DATE) AS FIRST_GROWTH_DATE
+    FROM GROWTH
+    GROUP BY CULT_ID
+),
+FIRST_ENV AS (
+    -- 환경 데이터(ENV_SUMMARY)의 첫 측정일자 추출
+    -- ENV_SUMMARY 테이블의 날짜 컬럼명을 ENV_DATE로 가정 (다를 경우 수정 필요)
+    SELECT CULT_ID, MIN(ENV_DATE) AS FIRST_ENV_DATE
+    FROM ENV_SUMMARY
+    GROUP BY CULT_ID
+)
+SELECT 
+    F.FARM_NAME,
+    C.CULT_ID,
+    C.ITEM AS PRODUCT,             -- 품종(완숙토마토 등)
+    C.PLANTING_DATE AS "정식일자",
+    G.FIRST_GROWTH_DATE AS "첫_생육조사일",
+    E.FIRST_ENV_DATE AS "첫_환경측정일",
+    -- 정식일과 환경측정 시작일 간의 차이 (데이터 누락 여부 확인용)
+    (TRUNC(E.FIRST_ENV_DATE) - TRUNC(C.PLANTING_DATE)) AS "환경데이터_지연일수"
+FROM FARMS F
+JOIN CULTIVATIONS C ON F.FARM_ID = C.FARM_ID
+LEFT JOIN FIRST_GROWTH G ON C.CULT_ID = G.CULT_ID
+LEFT JOIN FIRST_ENV E ON C.CULT_ID = E.CULT_ID
+WHERE F.FARM_NAME IN ('2022_9', '2022_15', '2022_24')
+ORDER BY F.FARM_NAME, C.PLANTING_DATE;
+
+WITH FIRST_GROWTH AS (
+    -- 생육 데이터(GROWTH)의 첫 조사일
+    SELECT CULT_ID, MIN(INSPECT_DATE) AS FIRST_GROWTH_DATE
+    FROM GROWTH
+    GROUP BY CULT_ID
+),
+FIRST_ENV AS (
+    -- [주의] ENV_SUMMARY의 날짜 컬럼명이 YMD 또는 MEASURE_DATE일 가능성이 높습니다.
+    -- 여기서는 범용적으로 인식될 수 있도록 날짜 컬럼을 찾아 적용해야 합니다.
+    SELECT CULT_ID, MIN(MEASURE_DATE) AS FIRST_ENV_DATE -- 만약 에러 시 YMD를 실제 컬럼명으로 수정
+    FROM ENV_SUMMARY
+    GROUP BY CULT_ID
+)
+SELECT 
+    F.FARM_NAME,
+    C.CULT_ID,
+    C.ITEM AS PRODUCT,             -- 품종
+    C.PLANTING_DATE AS "정식일자",
+    G.FIRST_GROWTH_DATE AS "첫_생육조사일",
+    E.FIRST_ENV_DATE AS "첫_환경측정일",
+    -- 데이터 간격 확인 (정식 후 며칠 뒤부터 환경 데이터가 쌓였는가)
+    CASE 
+        WHEN E.FIRST_ENV_DATE IS NOT NULL 
+        THEN (TRUNC(E.FIRST_ENV_DATE) - TRUNC(C.PLANTING_DATE)) 
+        ELSE NULL 
+    END AS "환경측정_지연일"
+FROM FARMS F
+JOIN CULTIVATIONS C ON F.FARM_ID = C.FARM_ID
+LEFT JOIN FIRST_GROWTH G ON C.CULT_ID = G.CULT_ID
+LEFT JOIN FIRST_ENV E ON C.CULT_ID = E.CULT_ID
+WHERE F.FARM_NAME IN ('2022_9', '2022_15', '2022_24')
+ORDER BY F.FARM_NAME, C.PLANTING_DATE;
+
+
+SELECT * FROM CULTIVATIONS 
+WHERE FARM_ID IN (
+    SELECT FARM_ID FROM FARMS WHERE FARM_NAME IN ('2022_9', '2022_15', '2022_24')
+)
+ORDER BY FARM_ID, PLANTING_DATE;
+
+
+ALTER TABLE GROW_SUMMARY ADD (ORIGIN_TYPE NUMBER DEFAULT 0);
+
+
+
+SELECT 
+    c.CULT_ID,
+    c.PLANTING_DATE AS "정식일",
+    g.FIRST_INSPECT AS "첫 조사일",
+    -- 첫 조사일에서 정식일을 뺀 생육일수 계산
+    TRUNC(g.FIRST_INSPECT - c.PLANTING_DATE) AS "첫 생육일수(DAYS)"
+FROM 
+    CULTIVATIONS c
+JOIN (
+    -- 농가별로 가장 빠른 조사일자를 찾는 서브쿼리
+    SELECT 
+        CULT_ID, 
+        MIN(INSPECT_DATE) AS FIRST_INSPECT
+    FROM 
+        GROWTH
+    GROUP BY 
+        CULT_ID
+) g ON c.CULT_ID = g.CULT_ID
+-- 마이너스인 데이터를 먼저 확인하기 위해 정렬
+ORDER BY 
+    "첫 생육일수(DAYS)" ASC;
+    
+    
+    
+    SELECT 
+    f.FARM_ID,
+    f.FARM_NAME,
+    c.CULT_ID,
+    c.ITEM,
+    c.ITEM_VARIETY,
+    c.PLANTING_DATE AS "DB 정식일",
+    g.FIRST_INSPECT AS "첫 조사일",
+    TRUNC(g.FIRST_INSPECT - c.PLANTING_DATE) AS "오차(일수)"
+FROM 
+    FARMS f
+JOIN 
+    CULTIVATIONS c ON f.FARM_ID = c.FARM_ID
+JOIN (
+    SELECT 
+        CULT_ID, 
+        MIN(INSPECT_DATE) AS FIRST_INSPECT
+    FROM 
+        GROWTH
+    GROUP BY 
+        CULT_ID
+) g ON c.CULT_ID = g.CULT_ID
+WHERE 
+    g.FIRST_INSPECT < c.PLANTING_DATE  -- 정식일보다 조사일이 빠른 경우만 추출
+ORDER BY 
+    "오차(일수)" ASC;
+    
+    
+    
+    SELECT 
+    f.FARM_ID,
+    f.FARM_NAME,
+    c.CULT_ID,
+    c.ITEM,
+    c.PLANTING_DATE AS "정식일",
+    g.FIRST_INSPECT AS "첫 조사일",
+    p.FIRST_PROD AS "첫 출하일",
+    -- 논리 체크 (마이너스면 오류)
+    TRUNC(g.FIRST_INSPECT - c.PLANTING_DATE) AS "정식_조사_간격",
+    TRUNC(p.FIRST_PROD - c.PLANTING_DATE) AS "정식_출하_간격"
+FROM 
+    FARMS f
+JOIN 
+    CULTIVATIONS c ON f.FARM_ID = c.FARM_ID
+LEFT JOIN (
+    SELECT CULT_ID, MIN(INSPECT_DATE) AS FIRST_INSPECT 
+    FROM GROWTH GROUP BY CULT_ID
+) g ON c.CULT_ID = g.CULT_ID
+LEFT JOIN (
+    SELECT CULT_ID, MIN(PRODUCTION_DATE) AS FIRST_PROD 
+    FROM PRODUCTS GROUP BY CULT_ID
+) p ON c.CULT_ID = p.CULT_ID
+WHERE 
+    (g.FIRST_INSPECT < c.PLANTING_DATE) OR (p.FIRST_PROD < c.PLANTING_DATE)
+ORDER BY 
+    "정식_조사_간격" ASC;
+    
+    
+SELECT 
+    c.CULT_ID,
+    f.FARM_NAME,
+    c.ITEM,
+    c.PLANTING_DATE
+FROM 
+    FARMS f
+JOIN 
+    CULTIVATIONS c ON f.FARM_ID = c.FARM_ID
+WHERE 
+    f.FARM_NAME = '2022_15' 
+    AND c.crop_cycle = 1;
+    
+    
+    SELECT 
+    MEASURE_DATE,
+    ACC_TEMP AS OLD_TEMP,
+    (SELECT SUM(DAILY_IN_TEMP) FROM ENV_SUMMARY WHERE CULT_ID = 203 AND MEASURE_DATE <= t.MEASURE_DATE AND MEASURE_DATE >= (SELECT PLANTING_DATE FROM CULTIVATIONS WHERE CULT_ID=203)) AS NEW_TEMP
+FROM ENV_SUMMARY t
+WHERE CULT_ID = 203
+ORDER BY MEASURE_DATE;
+
+
+
+SELECT 
+    MEASURE_DATE, 
+    DAILY_IN_TEMP, 
+    ACC_TEMP, 
+    DAILY_ACC_SOLAR, 
+    ACC_SOLAR
+FROM ENV_SUMMARY
+WHERE CULT_ID = 203
+ORDER BY MEASURE_DATE;
+
+SELECT * FROM KAMIS_TOMATO_PRICE ORDER BY PRICE_ID DESC;
+
+
+
+
+SELECT * FROM WEATHER_INDEX ORDER BY W_DATE DESC;
+SELECT COUNT(*) FROM WEATHER_INDEX;
+
+
+SELECT *
+FROM PREDICTION_RESULTS
+ORDER BY PREDICTION_ID DESC;
+
+SELECT
+    cult_id,
+    planting_area,
+    total_yield,
+    ROUND(total_yield / planting_area, 2) AS yield_per_m2
+FROM cultivation_result
+WHERE item = '완숙토마토'
+ORDER BY yield_per_m2 DESC;
+
+
+
+SELECT COUNT(*) 
+FROM PROD_SUMMARY
+WHERE YIELD_PER_AREA IS NOT NULL;
+
+
+SELECT ORIGIN_TYPE, COUNT(*)
+FROM PROD_SUMMARY
+GROUP BY ORIGIN_TYPE
+ORDER BY ORIGIN_TYPE;
+
+SELECT SEQUENCE_NAME
+FROM USER_SEQUENCES
+ORDER BY SEQUENCE_NAME;
+
+SELECT SEQ_ENV_ID.NEXTVAL FROM DUAL;
+
+
+SELECT
+    TO_CHAR(MEASURE_TIME, 'MM-DD HH24:MI') AS TM,
+    IN_TEMP,
+    IN_HUMIDITY,
+    IN_CO2
+FROM ENVIRONMENT
+WHERE CULT_ID = 249
+  AND MEASURE_TIME >= SYSDATE - 1
+  AND MEASURE_TIME <= SYSDATE
+ORDER BY MEASURE_TIME;
+
+
+DELETE FROM ENVIRONMENT
+WHERE CULT_ID = 249
+  AND MEASURE_TIME >= TO_DATE('2026-02-18', 'YYYY-MM-DD')
+  AND MEASURE_TIME < TO_DATE('2026-03-31', 'YYYY-MM-DD') + 1;
+  
+SELECT COUNT(*)
+FROM ENVIRONMENT
+WHERE CULT_ID = 249
+  AND MEASURE_TIME >= TO_DATE('2026-02-18', 'YYYY-MM-DD')
+  AND MEASURE_TIME < TO_DATE('2026-03-31', 'YYYY-MM-DD') + 1;
+  
+  
+  
+SELECT
+    cult_id,
+    measure_time,
+    out_temp,
+    out_wind_direction,
+    out_wind_speed,
+    out_solar_rad,
+    out_acc_solar_rad,
+    rain_detection,
+    in_temp,
+    in_humidity,
+    in_co2,
+    soil_temp,
+    COUNT(*) AS cnt
+FROM environment
+WHERE cult_id = 249
+  AND measure_time >= DATE '2026-02-18'
+  AND measure_time < DATE '2026-04-01'
+GROUP BY
+    cult_id,
+    measure_time,
+    out_temp,
+    out_wind_direction,
+    out_wind_speed,
+    out_solar_rad,
+    out_acc_solar_rad,
+    rain_detection,
+    in_temp,
+    in_humidity,
+    in_co2,
+    soil_temp
+HAVING COUNT(*) > 1
+ORDER BY measure_time;
+
+
+DELETE FROM environment
+WHERE cult_id = 249
+  AND measure_time >= DATE '2026-02-18'
+  AND measure_time < DATE '2026-04-01';
+
+COMMIT;
+
+
+
+SELECT COUNT(*)
+FROM environment
+WHERE cult_id = 249
+  AND measure_time >= DATE '2026-02-18'
+  AND measure_time < DATE '2026-04-01';
+  
+  
+SELECT
+    s.sid,
+    s.serial#,
+    s.username,
+    s.status,
+    s.event,
+    s.blocking_session,
+    s.seconds_in_wait,
+    s.sql_id
+FROM v$session s
+WHERE s.username IS NOT NULL
+ORDER BY s.status, s.sid;
+
+
+SELECT
+    lo.session_id,
+    lo.oracle_username,
+    lo.locked_mode,
+    do.object_name
+FROM v$locked_object lo
+JOIN dba_objects do
+  ON lo.object_id = do.object_id
+WHERE do.object_name = 'ENVIRONMENT';
+
+
+SELECT index_name, column_name, column_position
+FROM user_ind_columns
+WHERE table_name = 'ENVIRONMENT'
+ORDER BY index_name, column_position;
+
+
+
+-- 1. 해당 cult_id / 기간 데이터가 몇 건 들어갔는지 확인
+SELECT
+    cult_id,
+    COUNT(*) AS cnt,
+    MIN(measure_time) AS min_time,
+    MAX(measure_time) AS max_time
+FROM environment
+WHERE cult_id = 249
+  AND measure_time >= TO_DATE('2026-02-18', 'YYYY-MM-DD')
+  AND measure_time <  TO_DATE('2026-04-01', 'YYYY-MM-DD')
+GROUP BY cult_id;
+
+SELECT COUNT(*) cnt
+FROM environment
+WHERE cult_id = 249
+  AND measure_time >= TO_DATE('2026-02-18', 'YYYY-MM-DD')
+  AND measure_time < TO_DATE('2026-04-01', 'YYYY-MM-DD');
+  
+SELECT COUNT(*) AS cnt
+FROM environment
+WHERE cult_id = 249
+  AND measure_time >= TO_DATE('2026-02-18', 'YYYY-MM-DD')
+  AND measure_time < TO_DATE('2026-04-01', 'YYYY-MM-DD');
+  
+  
+SELECT
+    cult_id,
+    measure_time,
+    COUNT(*) AS dup_cnt
+FROM environment
+WHERE cult_id = 249
+  AND measure_time >= TO_DATE('2026-02-18', 'YYYY-MM-DD')
+  AND measure_time < TO_DATE('2026-04-01', 'YYYY-MM-DD')
+GROUP BY cult_id, measure_time
+HAVING COUNT(*) > 1;
+
+
+SELECT sequence_name
+FROM user_sequences
+WHERE sequence_name LIKE '%ENV%'
+   OR sequence_name LIKE '%SUMMARY%'
+   OR sequence_name LIKE '%ENVSU%';
+   
+SELECT trigger_name, table_name, status
+FROM user_triggers
+WHERE table_name = 'ENV_SUMMARY';
+
+
+
+SELECT *
+FROM ENVIRONMENT
+WHERE CULT_ID = 245
+ORDER BY MEASURE_TIME DESC;
+
+SELECT *
+FROM ENV_CLEANED
+WHERE CULT_ID = 245
+ORDER BY MEASURE_TIME DESC;
+
+SELECT *
+FROM ENV_SUMMARY
+WHERE CULT_ID = 245
+ORDER BY MEASURE_DATE DESC;
+
+
+-- RAW
+SELECT *
+FROM environment
+WHERE cult_id = 245
+  AND measure_time = TO_DATE('2026-04-01 10:00:00', 'YYYY-MM-DD HH24:MI:SS');
+
+-- CLEANED
+SELECT *
+FROM env_cleaned
+WHERE cult_id = 245
+  AND measure_time = TO_DATE('2026-04-01 10:00:00', 'YYYY-MM-DD HH24:MI:SS');
+
+-- SUMMARY
+SELECT *
+FROM env_summary
+WHERE cult_id = 245
+  AND summary_date = TO_DATE('2026-04-01', 'YYYY-MM-DD');
+  
+DESC env_summary;
+
+SELECT *
+FROM env_summary
+WHERE cult_id = 245
+  AND measure_date = TO_DATE('2026-04-01', 'YYYY-MM-DD');
+  
+  
+SELECT sequence_name
+FROM user_sequences
+WHERE sequence_name LIKE '%GROWTH%';
+
+
+SELECT COUNT(*)
+FROM CULTIVATIONS
+WHERE VIRTUAL_SENSOR_ENABLED IS NULL;
+
+
+SELECT
+    CULT_ID,
+    CULT_NAME,
+    VIRTUAL_SENSOR_ENABLED,
+    DUMP(VIRTUAL_SENSOR_ENABLED) AS RAW_VALUE
+FROM CULTIVATIONS
+ORDER BY CULT_ID;
+
+
+UPDATE CULTIVATIONS
+SET VIRTUAL_SENSOR_ENABLED = 'Y'
+WHERE CULT_ID = 249;
+
+COMMIT;
+
+SELECT CULT_ID, CULT_NAME, VIRTUAL_SENSOR_ENABLED
+FROM CULTIVATIONS
+WHERE VIRTUAL_SENSOR_ENABLED = 'Y';
+
+SELECT 
+    A.GROWTH_ID, 
+    B.GROWTH_ID, 
+    A.INSPECT_DATE AS "생장조사일",
+    B.PLANT_HEIGHT AS "초장(요약)"
+FROM GROWTH A
+INNER JOIN GROW_SUMMARY B ON A.GROWTH_ID = B.GROWTH_ID
+WHERE ROWNUM <= 10; -- 상위 10개만 샘플 확인
+
+
+SELECT * FROM SMART.KAMIS_TOMATO_PRICE ORDER BY PRICE_DATE DESC;
+
+SELECT owner, table_name 
+FROM all_tables 
+WHERE table_name = 'KAMIS_TOMATO_PRICE';
+
+SELECT COUNT(*) FROM SMART.KAMIS_TOMATO_PRICE;
+
+SELECT MIN(PRICE_DATE), MAX(PRICE_DATE) FROM SMART.KAMIS_TOMATO_PRICE;
+
+SELECT COUNT(*) FROM SMART.KAMIS_TOMATO_PRICE;
+
+SELECT column_name
+FROM user_tab_columns
+WHERE table_name = 'PREDICTION_RESULTS'
+ORDER BY column_id;
+
+
+
