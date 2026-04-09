@@ -1,45 +1,141 @@
-
 {% extends 'base.html' %}
 {% block content %}
-<div class="container my-3">
-    <h2 class="border-bottom py-2">{{question.subject}}</h2>
-    <div class="card my-3">
-        <div class="card-body">
-            <div class="card-text" style="white-space: pre-line;">{{question.content}}</div>
-            <div class="text-end">
-                <div class="badge bg-light text-dark p-2">{{question.created_date}}</div>
+
+<div class="p-8 bg-gray-50 min-h-screen max-w-4xl mx-auto">
+
+    <div class="mb-6">
+
+        <div class="flex justify-between items-start mb-3 gap-4">
+
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">
+                    {{ question.subject }}
+                </h1>
+
+                <p class="text-sm text-gray-400 mt-2">
+                    작성자 {{ question.user.name }} · {{ question.created_date.strftime('%Y.%m.%d') }}
+                </p>
             </div>
+
+            <div class="flex items-center gap-2">
+                {% if question.answers_set|length > 0 %}
+                <span class="flex items-center gap-1 text-green-600 text-sm font-semibold">
+                    <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    답변완료
+                </span>
+                {% else %}
+                <span class="flex items-center gap-1 text-orange-500 text-sm font-semibold">
+                    <i data-lucide="clock" class="w-4 h-4"></i>
+                    대기중
+                </span>
+                {% endif %}
+
+                {% if g.user and question.user_id == g.user.user_id %}
+                <form action="{{ url_for('question.delete', question_id=question.id) }}"
+                      method="post"
+                      onsubmit="return confirm('질문을 삭제하시겠습니까?');">
+                    <button type="submit"
+                            class="px-3 py-1.5 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50">
+                        질문 삭제
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
         </div>
+
     </div>
 
-    <h5 class="border-bottom my-3 py-2">{{question.answers_set|length}} 개의 답변이 있습니다.</h5>
-    {% for answer in question.answers_set %}
-    <div class="card my-3">
-        <div class="card-body">
-            <div class="card-text" style="white-space: pre-line;">{{answer.content}}</div>
-            <div class="text-end">
-                <div class="badge bg-light text-dark p-2">{{answer.created_date}}</div>
-            </div>
-        </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-6 mb-8 shadow-sm">
+        <p class="text-gray-700 leading-relaxed whitespace-pre-line">{{ question.content }}</p>
     </div>
-    {% endfor %}
 
-    <form action="{{url_for('answer.create',question_id=question.id)}}" method="post" class="my-3">
-        {{form.csrf_token}}
+    <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">
+            💬 답변 {{ question.answers_set|length }}개
+        </h2>
 
-        {% for field, errors in form.errors.items() %}
-        <div class="alert alert-danger" role="alert">
-          <strong> {{form[field].label}}</strong>: {{','.join(errors) }}
+        {% for answer in question.answers_set %}
+        <div class="bg-white border border-gray-200 rounded-xl p-5 mb-4 shadow-sm">
+
+            <p class="text-gray-700 whitespace-pre-line">{{ answer.content }}</p>
+
+            <div class="flex justify-between items-center mt-3">
+                <div class="text-xs text-gray-400">
+                    {{ answer.user.name }} · {{ answer.created_date.strftime('%Y.%m.%d') }}
+                </div>
+
+                {% if g.user and answer.user_id == g.user.user_id %}
+                <form action="{{ url_for('answer.delete', answer_id=answer.id) }}"
+                      method="post"
+                      onsubmit="return confirm('답변을 삭제하시겠습니까?');">
+                    <button type="submit"
+                            class="px-3 py-1 text-xs text-red-600 border border-red-200 rounded-lg hover:bg-red-50">
+                        삭제
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+
         </div>
         {% endfor %}
 
-        <div class="form-group">
-            <label for="content"></label>
-            <textarea name="content" id="content" class="form-control" rows="10"></textarea>
+        {% if question.answers_set|length == 0 %}
+        <div class="text-gray-400 text-sm">
+            아직 답변이 없습니다.
         </div>
-        <input type="submit" value="답변등록" class="btn btn-primary">
-        <button type="button" onclick="history.back()" class="btn">back</button>
-    </form>
+        {% endif %}
+    </div>
+
+    {% if g.user %}
+    <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+
+        <h3 class="text-md font-semibold text-gray-800 mb-4">
+            답변 작성
+        </h3>
+
+        <form action="{{ url_for('answer.create', question_id=question.id) }}" method="post">
+            {{ form.csrf_token }}
+
+            {% for field, errors in form.errors.items() %}
+            <div class="mb-3 text-sm text-red-500">
+                <strong>{{ form[field].label }}</strong> : {{ ', '.join(errors) }}
+            </div>
+            {% endfor %}
+
+            <textarea name="content"
+                      id="content"
+                      rows="6"
+                      placeholder="답변을 입력해주세요."
+                      class="w-full p-4 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 resize-none">{{ form.content.data or '' }}</textarea>
+
+            <div class="flex justify-end gap-3 mt-4">
+
+                <button type="submit"
+                        class="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm flex items-center gap-2">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    답변등록
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+    {% else %}
+    <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm text-sm text-gray-500">
+        답변 작성은 로그인 후 가능합니다.
+    </div>
+    {% endif %}
+
+<div class="flex justify-center mt-8">
+        <a href="{{ url_for('question._list') }}"
+           class="px-6 py-2.5 text-sm text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg shadow-sm inline-flex items-center gap-2">
+            <i data-lucide="list" class="w-4 h-4"></i>
+            목록으로
+        </a>
+    </div>
 
 </div>
+
 {% endblock %}

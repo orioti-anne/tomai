@@ -1,0 +1,51 @@
+textarea{
+    width: 100%;
+}
+
+input[type=submit]{
+    margin-top: 10px;
+}
+
+
+.glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+
+.mainHeroSwiper {
+    width: 100%;
+    min-height: 400px;
+    height: auto;
+}
+
+
+.mainHeroSwiper .swiper-pagination-bullet-active {
+    background: #ffffff !important;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #facc15;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.6);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+

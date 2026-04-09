@@ -1,0 +1,659 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-800 tracking-tight">실시간 생육 진단</h2>
+            <p class="text-slate-500 mt-1">AI가 생육 상태를 진단하고 딱 맞는 환경을 알려드려요.</p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <form method="get" action="{{ url_for('growth.growth_monitoring') }}" class="flex items-center gap-2">
+                <label for="cult_id" class="text-sm font-semibold text-slate-600 whitespace-nowrap">재배명</label>
+                <select
+                    id="cult_id"
+                    name="cult_id"
+                    onchange="this.form.submit()"
+                    class="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-2.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                    {% for cult in cultivations %}
+                        <option
+                            value="{{ cult.cult_id }}"
+                            {% if selected_cultivation and cult.cult_id == selected_cultivation.cult_id %}selected{% endif %}
+                        >
+                            {{ cult.cult_name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="space-y-2 mb-4">
+          {% for category, message in messages %}
+            <div class="rounded-xl px-4 py-3 text-sm
+                {% if category == 'success' %}
+                    bg-green-50 text-green-700 border border-green-200
+                {% else %}
+                    bg-red-50 text-red-700 border border-red-200
+                {% endif %}">
+                {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6 items-start">
+        <!-- 좌측: 현재 생육상태 -->
+        <div class="lg:col-span-7 min-w-0">
+            <div class="bg-white rounded-2xl p-6 border border-gray-100 h-full">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="flex items-center gap-1.5 mb-1">
+                        <h2 class="text-lg font-bold text-slate-800 tracking-tight">현재 생육상태</h2>
+
+                           <div class="relative group flex items-center">
+                                <svg class="w-5 h-5 text-green-500 group-hover:text-slate-700 cursor-default transition-colors duration-200"
+                                     fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                </svg>
+
+                                            <div class="absolute top-full left-0 mt-3 w-72 p-5 bg-white border border-slate-300 rounded-2xl shadow-[0_15px_45px_-10px_rgba(0,0,0,0.12)] opacity-0 group-hover:opacity-100 transition-all transform translate-y-1 group-hover:translate-y-0 pointer-events-none z-50 origin-top-left">
+                                                <div class="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
+                                                    <div class="w-5 h-5 rounded-lg bg-green-50 flex items-center justify-center shadow-sm">
+                                                        <span class="text-base">🌱</span>
+                                                    </div>
+                                                    <span class="font-bold text-slate-900 text-[15px]">데이터 누적 안내</span>
+
+                                                </div>
+
+                                                <div class="space-y-2.5">
+                                                    <p class="leading-relaxed text-slate-600 text-[12.5px]">
+                                                        '생육정보등록' 시 <span class="text-green-700 font-bold bg-green-50 px-1.5 py-0.5 rounded border border-green-100">동일한 개체번호</span>로 정보를 등록하면 <b>점검일</b> 별로 데이터가 누적됩니다.
+                                                    </p>
+                                                    <div class="mt-3 pt-3 border-t border-slate-50 text-slate-500 text-[11.5px] flex items-start gap-1.5">
+                                                        <span class="text-green-500">✨</span>
+                                                        <span>누적된 데이터를 기반으로 AI가 더 정확한 미래 성장을 예측합니다.</span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="absolute -top-1.5 left-2.5 w-3 h-3 bg-white border-t border-l border-slate-200 rotate-45"></div>
+                                            </div>
+                        </div>
+
+                        <p class="text-xs text-gray-400 mt-1">
+                            {% if latest_growth_list and latest_growth_list|length > 0 %}
+                                최근점검일 · {{ latest_growth_list[0].inspect_date.strftime('%Y-%m-%d') if latest_growth_list[0].inspect_date else '-' }}
+                            {% else %}
+                                최근점검일 · 등록 내역 없음
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button
+                            type="button"
+                            id="toggleGrowthFormBtn"
+                            class="text-xs px-4 py-2 rounded-full bg-green-600 text-white hover:bg-green-500">
+                            생육정보등록
+                        </button>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    {% if latest_growth_list and latest_growth_list|length > 0 %}
+                        {% for growth in latest_growth_list %}
+                        <div class="{% if not loop.last %}border-b border-gray-100 pb-6{% endif %}">
+                            <div class="flex items-start gap-6">
+                                <div class="flex flex-col items-center shrink-0">
+                                    <div class="w-24 h-24 bg-green-100 rounded-2xl flex items-center justify-center text-5xl mt-1">
+                                        {% if growth.plant_height is not none %}
+                                            {% if growth.plant_height < 50 %}
+                                                🌱
+                                            {% elif growth.plant_height < 120 %}
+                                                🌿
+                                            {% else %}
+                                                🍅
+                                            {% endif %}
+                                        {% else %}
+                                            🌱
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="mt-2 text-[11px] text-gray-400 leading-5 text-center">
+                                        <div>개체번호 {{ growth.plant_num if growth.plant_num else 1 }}</div>
+
+                                        {% if growth.branch_num %}
+                                        <div>줄기번호 {{ growth.branch_num }}</div>
+                                        {% endif %}
+
+                                        {% if growth.cluster_num %}
+                                        <div>화방번호 {{ growth.cluster_num }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="flex-1 min-w-0">
+                                    <div class="grid grid-cols-2 gap-x-10 gap-y-8">
+                                        <div>
+                                            <p class="text-gray-400">초장</p>
+                                            <p class="text-2xl font-bold text-gray-900 whitespace-nowrap">
+                                                {% if growth.plant_height is not none %}
+                                                    {{ "%.1f"|format(growth.plant_height) }} cm
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <p class="text-gray-400">생장길이</p>
+                                            <p class="text-2xl font-bold text-gray-900 whitespace-nowrap">
+                                                {% if growth.growth_length is not none %}
+                                                    {{ "%.1f"|format(growth.growth_length) }} cm
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <p class="text-gray-400">엽수</p>
+                                            <p class="text-2xl font-bold text-gray-900 whitespace-nowrap">
+                                                {% if growth.leaf_count is not none %}
+                                                    {{ growth.leaf_count|int }} 장
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </p>
+                                        </div>
+
+                                        <div>
+                                            <p class="text-gray-400">엽폭</p>
+                                            <p class="text-2xl font-bold text-gray-900 whitespace-nowrap">
+                                                {% if growth.leaf_width is not none %}
+                                                    {{ "%.1f"|format(growth.leaf_width) }} cm
+                                                {% else %}
+                                                    -
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {% set forecast = growth_forecasts.get(growth.plant_num if growth.plant_num is not none else 1) %}
+                            {% if forecast %}
+                            <div class="mt-6 w-full rounded-2xl border border-emerald-100 bg-gradient-to-r from-emerald-50 to-blue-50 px-5 py-4">
+                                <div class="mb-3 flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M13 7h4m0 0v4m0-4L10 14l-4-4-3 3"></path>
+                                    </svg>
+                                    <span class="text-sm font-semibold text-gray-700">초장 성장 예측</span>
+                                    <span class="text-xs font-normal text-gray-400">현재 재배 환경 기반 AI 예측치입니다.</span>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="rounded-xl bg-white/80 px-4 py-3">
+                                        <p class="text-xs text-gray-500">7일 후</p>
+                                        <p class="mt-1 text-2xl font-bold text-emerald-700">
+                                            {{ "%.0f"|format(forecast.predicted_7d) }} cm
+                                        </p>
+                                        {% if growth.plant_height is not none %}
+                                        <p class="mt-1 text-sm text-gray-500">
+                                            +{{ "%.1f"|format(forecast.predicted_7d - growth.plant_height) }} cm
+                                        </p>
+                                        {% endif %}
+                                    </div>
+
+                                    <div class="rounded-xl bg-white/80 px-4 py-3">
+                                        <p class="text-xs text-gray-500">28일 후</p>
+                                        <p class="mt-1 text-2xl font-bold text-blue-700">
+                                            {{ "%.0f"|format(forecast.predicted_28d) }} cm
+                                        </p>
+                                        {% if growth.plant_height is not none %}
+                                        <p class="mt-1 text-sm text-gray-500">
+                                            +{{ "%.1f"|format(forecast.predicted_28d - growth.plant_height) }} cm
+                                        </p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <div class="mt-6 flex justify-end">
+                                <button
+                                    type="button"
+                                    class="flex items-center gap-1 text-sm font-medium text-green-600 hover:text-gray-600"
+                                    onclick="toggleGrowthDetail('{{ loop.index0 }}')">
+                                    <span id="growth-detail-text-{{ loop.index0 }}">추가정보 보기</span>
+                                    <svg
+                                        id="growth-detail-arrow-{{ loop.index0 }}"
+                                        class="w-4 h-4 transition-transform duration-200"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <div id="growth-detail-{{ loop.index0 }}" class="hidden mt-6 pt-3" style="padding-left:120px ">
+                                <div class="grid grid-cols-2 gap-x-10 gap-y-6">
+                                    <div>
+                                        <p class="text-sm text-gray-400">엽장</p>
+                                        <p class="text-lg font-semibold text-gray-600 whitespace-nowrap">
+                                            {% if growth.leaf_length is not none %}
+                                                {{ "%.1f"|format(growth.leaf_length) }} cm
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p class="text-sm text-gray-400">줄기굵기</p>
+                                        <p class="text-lg font-semibold text-gray-600 whitespace-nowrap">
+                                            {% if growth.branch_width is not none %}
+                                                {{ "%.1f"|format(growth.branch_width) }} mm
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p class="text-sm text-gray-400">화방높이</p>
+                                        <p class="text-lg font-semibold text-gray-600 whitespace-nowrap">
+                                            {% if growth.cluster_height is not none %}
+                                                {{ "%.1f"|format(growth.cluster_height) }} cm
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p class="text-sm text-gray-400">화방별 꽃수</p>
+                                        <p class="text-lg font-semibold text-gray-600 whitespace-nowrap">
+                                            {% if growth.flowers_per_cluster is not none %}
+                                                {{ growth.flowers_per_cluster|int }} 개
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p class="text-sm text-gray-400">화방별 개화수</p>
+                                        <p class="text-lg font-bold text-gray-600 whitespace-nowrap">
+                                            {% if growth.blooming_per_cluster is not none %}
+                                                {{ growth.blooming_per_cluster|int }} 개
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <p class="text-sm text-gray-400">화방별 착과수</p>
+                                        <p class="text-lg font-semibold text-gray-600 whitespace-nowrap">
+                                            {% if growth.fruits_per_cluster is not none %}
+                                                {{ growth.fruits_per_cluster|int }} 개
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-sm text-gray-400">등록된 생육 상태가 없습니다.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- 우측: 현재 재배환경 + 추천 환경제어 -->
+        <div class="lg:col-span-5 space-y-6 min-w-0">
+
+            <div class="bg-green-600 rounded-3xl p-8 text-white relative overflow-hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold">오늘의 맞춤 환경 제안</h2>
+                        <p class="text-green-100 text-sm mt-1">
+                            최적의 생육속도를 유지하기 위한 AI 추천값입니다.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div class="bg-green-500 p-5 rounded-2xl">
+                        <p class="text-green-100 text-sm">내부온도</p>
+                        <p class="text-2xl font-bold mt-1">
+                            {% if recommended_env and recommended_env.temp is not none %}
+                                {{ "%.1f"|format(recommended_env.temp) }} °C
+                            {% else %}
+                                -
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div class="bg-green-500 p-5 rounded-2xl">
+                        <p class="text-green-100 text-sm">내부습도</p>
+                        <p class="text-2xl font-bold mt-1">
+                            {% if recommended_env and recommended_env.humidity is not none %}
+                                {{ "%.0f"|format(recommended_env.humidity) }} %
+                            {% else %}
+                                -
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div class="bg-green-500 p-5 rounded-2xl">
+                        <p class="text-green-100 text-sm">잔존 CO₂</p>
+                        <p class="text-2xl font-bold mt-1">
+                            {% if recommended_env and recommended_env.co2 is not none %}
+                                {{ "%.0f"|format(recommended_env.co2) }} ppm
+                            {% else %}
+                                -
+                            {% endif %}
+                        </p>
+                    </div>
+
+                    <div class="bg-green-500 p-5 rounded-2xl">
+                        <p class="text-green-100 text-sm">고온주의 기준</p>
+                        <p class="text-2xl font-bold mt-1">
+                            {% if recommended_env and recommended_env.stress_temp is not none %}
+                                {{ "%.0f"|format(recommended_env.stress_temp) }} °C 이상
+                            {% else %}
+                                -
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl p-6 border border-gray-100">
+                <div class="flex justify-between items-center mb-4">
+                    <div>
+                        <h2 class="font-semibold text-gray-700">현재 재배환경</h2>
+                        <p class="text-xs text-gray-400 mt-1">
+                            {% if latest_env and latest_env.measure_time %}
+                                센서 최신 업데이트 · {{ latest_env.measure_time.strftime('%Y-%m-%d %H:%M') }}
+                            {% else %}
+                                현장센서 · 데이터 없음
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-50 p-4 rounded-xl">
+                        <p class="text-xs text-gray-400">내부온도</p>
+                        <p class="text-xl font-bold text-gray-800 mt-1">
+                            {{ "%.1f"|format(latest_env.in_temp) if latest_env and latest_env.in_temp is not none else "-" }} °C
+                        </p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-xl">
+                        <p class="text-xs text-gray-400">내부습도</p>
+                        <p class="text-xl font-bold text-gray-800 mt-1">
+                            {{ "%.1f"|format(latest_env.in_humidity) if latest_env and latest_env.in_humidity is not none else "-" }} %
+                        </p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-xl">
+                        <p class="text-xs text-gray-400">잔존 CO₂</p>
+                        <p class="text-xl font-bold text-gray-800 mt-1">
+                            {{ "%.0f"|format(latest_env.in_co2) if latest_env and latest_env.in_co2 is not none else "-" }} ppm
+                        </p>
+                    </div>
+                    <div class="bg-gray-50 p-4 rounded-xl">
+                        <p class="text-xs text-gray-400">외부 누적 일사량</p>
+                        <p class="text-xl font-bold text-gray-800 mt-1">
+                            {{ "%.1f"|format(latest_env.out_acc_solar_rad) if latest_env and latest_env.out_acc_solar_rad is not none else "-" }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+
+    <!-- 생육 등록 폼 -->
+    <div id="growthFormWrap" class="hidden bg-white rounded-2xl p-6 border border-gray-100 mb-6">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="font-semibold text-gray-700">현재 생육상태 등록</h2>
+                <p class="text-sm text-gray-400 mt-1">개체별 생육 지표를 기록하여 날짜별 성장 흐름을 분석합니다.</p>
+                    <div class="w-full mt-2 p-2 bg-gray-50/50 rounded-xl border border-gray-100/50">
+                        <ul class="text-[13px] text-gray-500 space-y-1.5 list-disc pl-5">
+                            <li>
+                                <span class="font-medium text-gray-700">기존 개체:</span>
+                                이전에 기록한 <span class="text-green-600 font-semibold">동일한 개체번호</span>를 입력하면, 직전 측정 데이터가 자동으로 로드됩니다. <span class="text-gray-700 font-medium underline">변화된 현재 수치로 직접 수정</span>하여 입력해 주세요.
+                            </li>
+                            <li>
+                                <span class="font-medium text-gray-700">새로운 개체:</span>
+                                처음 측정하는 개체는 중복되지 않는 <span class="text-blue-600 font-semibold">새 개체번호</span>를 부여하세요. 등록 시 참고용 기본값이 채워지나 실제 측정된 수치를 <span class="text-gray-700 font-medium">직접 입력</span>해 주세요.
+                            </li>
+{#                            <li>#}
+{#                                <span class="font-medium text-gray-700">데이터 활용:</span>#}
+{#                                직접 입력하신 실측 데이터가 누적될수록 AI의 성장 예측 및 수확 시기 분석이 더욱 정밀해집니다.#}
+{#                            </li>#}
+                        </ul>
+                    </div>
+            </div>
+        </div>
+
+        <form method="post" action="{{ url_for('growth.growth_monitoring', cult_id=selected_cultivation.cult_id if selected_cultivation else None) }}">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">점검일 *</label>
+                    <input type="date" name="inspect_date" value="{{ today.strftime('%Y-%m-%d') }}"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">개체번호 *</label>
+                    <input type="number" name="plant_num" min="1" value="1"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">줄기번호</label>
+                    <input type="number" name="branch_num" min="1"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">초장(cm) *</label>
+                    <input type="number" step="0.1" name="plant_height"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">생장길이(cm)</label>
+                    <input type="number" step="0.1" name="growth_length"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">엽수(개)</label>
+                    <input type="number" name="leaf_count"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">엽장(cm)</label>
+                    <input type="number" step="0.1" name="leaf_length"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">엽폭(cm)</label>
+                    <input type="number" step="0.1" name="leaf_width"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">줄기굵기(mm)</label>
+                    <input type="number" step="0.1" name="branch_width"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">화방높이(cm)</label>
+                    <input type="number" step="0.1" name="cluster_height"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">화방번호</label>
+                    <input type="number" name="cluster_num" min="1"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">화방당 꽃수(개)</label>
+                    <input type="number" name="flowers_per_cluster"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">화방당 개화수(개)</label>
+                    <input type="number" name="blooming_per_cluster"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">화방당 착과수(개)</label>
+                    <input type="number" name="fruits_per_cluster"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-gray-300 focus:text-gray-900" oninput="if(this.value < 0) this.value = ''; this.classList.remove('text-gray-300'); this.classList.add('text-gray-900')">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">비고</label>
+                    <input name="remarks"
+                           class="w-full rounded-xl border border-gray-200 px-4 py-2.5">
+                </div>
+
+            </div>
+
+            <div class="flex justify-end gap-3 mt-6">
+                <button type="button" id="cancelGrowthFormBtn"
+                        class="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50">
+                    취소
+                </button>
+                <button type="submit"
+                        class="px-5 py-2.5 rounded-xl bg-green-600 text-white hover:bg-green-500">
+                    저장
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const formWrap = document.getElementById('growthFormWrap');
+    const openBtn = document.getElementById('toggleGrowthFormBtn');
+    const cancelBtn = document.getElementById('cancelGrowthFormBtn');
+
+    openBtn?.addEventListener('click', function () {
+        formWrap?.classList.remove('hidden');
+        formWrap?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    cancelBtn?.addEventListener('click', function () {
+        formWrap?.classList.add('hidden');
+    });
+});
+
+function toggleGrowthDetail(index) {
+    const detail = document.getElementById(`growth-detail-${index}`);
+    const text = document.getElementById(`growth-detail-text-${index}`);
+    const arrow = document.getElementById(`growth-detail-arrow-${index}`);
+
+    const isHidden = detail.classList.contains('hidden');
+
+    if (isHidden) {
+        detail.classList.remove('hidden');
+        text.textContent = '추가정보 접기';
+        arrow.classList.add('rotate-180');
+    } else {
+        detail.classList.add('hidden');
+        text.textContent = '추가정보 보기';
+        arrow.classList.remove('rotate-180');
+    }
+}
+
+
+
+const plantNumInput = document.querySelector('input[name="plant_num"]');
+const cultId = "{{ selected_cultivation.cult_id if selected_cultivation else '' }}";
+
+const defaultValues = {
+    "branch_num": "1",
+    "plant_height": "100",
+    "growth_length": "15",
+    "leaf_count": "10",
+    "leaf_length": "12",
+    "leaf_width": "8",
+    "branch_width": "8",
+    "cluster_height": "20",
+    "cluster_num": "3",
+    "flowers_per_cluster": "5",
+    "blooming_per_cluster": "3",
+    "fruits_per_cluster": "2",
+    "remarks": ""
+};
+
+function fetchPlantData(plantNum) {
+    if (!plantNum || !cultId) return;
+
+    fetch(`/growth/get_latest_plant_data/${cultId}/${plantNum}`)
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                const data = result.data;
+                Object.keys(data).forEach(key => {
+                    const input = document.querySelector(`[name="${key}"]`);
+                    if (input) {
+                        input.value = data[key] !== null ? data[key] : "";
+                        input.classList.remove('text-gray-900');
+                        input.classList.add('text-gray-300');
+                    }
+                });
+            } else {
+                Object.keys(defaultValues).forEach(key => {
+                    const input = document.querySelector(`[name="${key}"]`);
+                    if (input) {
+                        input.value = defaultValues[key];
+                        input.classList.remove('text-gray-900');
+                        input.classList.add('text-gray-300');
+                    }
+                });
+            }
+        });
+}
+
+plantNumInput.addEventListener('change', function() {
+    fetchPlantData(this.value);
+});
+
+
+window.addEventListener('DOMContentLoaded', (event) => {
+    if(plantNumInput.value) {
+        fetchPlantData(plantNumInput.value);
+    }
+});
+</script>
+{% endblock %}

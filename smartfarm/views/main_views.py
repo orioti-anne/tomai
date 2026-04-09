@@ -1,13 +1,17 @@
-from flask import Blueprint, url_for
-from werkzeug.utils import redirect
+from flask import Blueprint, render_template, url_for, redirect, g, request
+from datetime import date
+
+from smartfarm.models import Cultivations, PredictionResults, Farms, Growth
+from smartfarm.services.weather_service import get_weather
 
 bp = Blueprint('main', __name__, url_prefix='/')
 
-
 @bp.route('/')
 def index():
-    return redirect(url_for('question._list'))
+    return render_template('home.html')
 
-@bp.route('/hello')
-def hello_pybo2():
-    return 'Hello, Pybo2!'
+
+
+@bp.route('/question')
+def question_list():
+    return redirect(url_for('question._list'))

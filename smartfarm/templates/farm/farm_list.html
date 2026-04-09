@@ -1,0 +1,173 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="min-h-screen bg-gray-50 py-12 px-4">
+    <div class="max-w-4xl mx-auto">
+        <div class="flex justify-between items-end mb-8">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-800">내 농가 관리</h1>
+            </div>
+            <div class="flex gap-2">
+                <button id="toggleHidden" class="px-4 py-2 bg-white border border-gray-200 text-gray-500 rounded-lg text-sm font-semibold hover:bg-gray-50 transition flex items-center gap-2 shadow-sm">
+                    <i data-lucide="eye" class="w-4 h-4"></i>
+                    <span>숨긴 항목 보기</span>
+                </button>
+                <a href="{{ url_for('farm.register') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold shadow-sm hover:bg-green-700 transition">
+                    <i data-lucide="plus" class="w-4 h-4 inline mr-1"></i>새 농가 추가
+                </a>
+            </div>
+        </div>
+
+        {% if farm_list %}
+            <div class="grid grid-cols-1 gap-6">
+                {% for farm in farm_list %}
+                <div class="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm {% if farm.is_active == 'N' %}opacity-60 grayscale-[0.5]{% endif %}">
+
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 bg-green-100 text-green-700 rounded-full flex items-center justify-center">
+                                <i data-lucide="home" class="w-5 h-5"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-lg font-bold text-gray-900">{{ farm.farm_name }}</h2>
+                                <div class="mt-1 space-y-0.5">
+                                    <p class="text-xs text-gray-500">
+                                        {{ farm.region_l1 }} {{ farm.region_l2 }}
+                                    </p>
+                                    <p class="text-xs text-gray-500 flex items-center gap-1">
+                                        총 면적: <span class="font-semibold text-gray-700">{{ farm.total_area }}평</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            {% if farm.is_active == 'Y' %}
+                            <a href="{{ url_for('farm.register_cult', farm_id=farm.farm_id) }}" class="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition">
+                                + 재배 등록
+                            </a>
+                            {% endif %}
+                            <div class="relative">
+                                <button type="button" data-menu-id="menu-{{ farm.farm_id }}" class="menu-toggle p-2 text-gray-400">
+                                    <i data-lucide="more-vertical" class="w-5 h-5"></i>
+                                </button>
+                                <div id="menu-{{ farm.farm_id }}" class="hidden absolute right-0 mt-2 w-40 bg-white border rounded-xl shadow-xl z-[100]">
+                                    <a href="{{ url_for('farm.toggle_status', farm_id=farm.farm_id) }}" class="block px-4 py-3 text-xs {% if farm.is_active == 'Y' %}text-red-500{% else %}text-green-600{% endif %}">
+                                        {% if farm.is_active == 'Y' %}농가 비활성화{% else %}농가 활성화{% endif %}
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if farm.cultivations %}
+                    <div class="space-y-4">
+                        {% for cult in farm.cultivations %}
+                        <div class="cult-item flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl transition-all
+                            {% if cult.status == 'hidden' %} hidden-row bg-gray-50 border border-dashed opacity-50 hidden
+                            {% elif cult.status == 'closed' %} bg-gray-900 text-white
+                            {% else %} bg-gray-50 border border-gray-100 {% endif %}">
+
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-base font-black {% if cult.status == 'closed' %}text-white{% else %}text-gray-900{% endif %}">
+                                        {{ cult.cult_name }}
+                                    </span>
+                                    {% if cult.status == 'active' %}
+                                        <span class="flex items-center gap-1 text-[10px] text-green-600 font-bold bg-green-50 px-1.5 py-0.5 rounded">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> 진행중
+                                        </span>
+                                    {% endif %}
+                                </div>
+
+                                <div class="text-sm {% if cult.status == 'closed' %}text-gray-300{% else %}text-blue-600{% endif %} font-bold mb-3">
+                                    {{ cult.item }} <span class="opacity-70">({{ cult.item_variety }})</span>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-y-1.5 gap-x-6 text-[11px] {% if cult.status == 'closed' %}text-gray-400{% else %}text-gray-500{% endif %}">
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="calendar" class="w-3.5 h-3.5 opacity-70"></i>
+                                        <span>정식일: <strong>{{ cult.planting_date }}</strong></span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="layout" class="w-3.5 h-3.5 opacity-70"></i>
+                                        <span>온실: {{ cult.house_type }} ({{ cult.house_form }})</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="maximize" class="w-3.5 h-3.5 opacity-70"></i>
+                                        <span>식부면적: <strong>{{ cult.planting_area }}평</strong></span>
+                                    </div>
+                                    {% if cult.planting_density %}
+                                    <div class="flex items-center gap-1.5">
+                                        <i data-lucide="grid" class="w-3.5 h-3.5 opacity-70"></i>
+                                        <span>재식밀도: <strong>{{ cult.planting_density }}주/㎡</strong></span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 mt-4 md:mt-0">
+                                {% if cult.status == 'hidden' %}
+                                    <a href="{{ url_for('farm.toggle_cult_status', cult_id=cult.cult_id) }}" class="px-4 py-2 bg-white text-gray-900 rounded-xl text-xs font-bold border border-gray-200 shadow-sm">
+                                        복구하기
+                                    </a>
+                                {% else %}
+                                    <a href="{{ url_for('farm.toggle_cult_status', cult_id=cult.cult_id) }}"
+                                       class="px-4 py-2 rounded-xl text-xs font-black transition-all shadow-sm flex items-center gap-1.5
+                                       {% if cult.status == 'active' %} bg-white text-blue-600 border border-blue-100 hover:bg-blue-50 {% else %} bg-white text-black hover:bg-gray-100 {% endif %}">
+                                        <i data-lucide="{% if cult.status == 'active' %}check-circle{% else %}rotate-ccw{% endif %}" class="w-3.5 h-3.5"></i>
+                                        {% if cult.status == 'active' %}재배완료{% else %}다시시작{% endif %}
+                                    </a>
+                                    <button onclick="if(confirm('이 재배 정보를 숨기시겠습니까?')) location.href='{{ url_for('farm.hide_cult', cult_id=cult.cult_id) }}'"
+                                            class="p-2.5 {% if cult.status == 'closed' %}text-gray-500 hover:text-gray-300{% else %}text-gray-300 hover:text-red-400{% endif %} transition-colors">
+                                        <i data-lucide="eye-off" class="w-4 h-4"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="py-20 text-center text-gray-400 text-sm bg-white rounded-3xl border border-dashed">등록된 농가가 없습니다.</div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) { lucide.createIcons(); }
+
+    // 숨긴 항목 토글
+    const toggleBtn = document.getElementById('toggleHidden');
+    if(toggleBtn) {
+        toggleBtn.addEventListener('click', () => {
+            const rows = document.querySelectorAll('.hidden-row');
+            if (rows.length === 0) {
+                alert('숨겨진 항목이 없습니다.');
+                return;
+            }
+            const isHidden = rows[0].classList.contains('hidden');
+            rows.forEach(r => r.classList.toggle('hidden'));
+            toggleBtn.querySelector('span').innerText = isHidden ? '숨긴 항목 닫기' : '숨긴 항목 보기';
+            toggleBtn.classList.toggle('bg-gray-800');
+            toggleBtn.classList.toggle('text-white');
+        });
+    }
+
+    // 메뉴 토글
+    document.querySelectorAll('.menu-toggle').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const menu = document.getElementById(btn.dataset.menuId);
+            document.querySelectorAll('[id^="menu-"]').forEach(m => m !== menu && m.classList.add('hidden'));
+            menu.classList.toggle('hidden');
+        });
+    });
+    document.addEventListener('click', () => document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden')));
+});
+</script>
+{% endblock %}

@@ -7,11 +7,13 @@ venv/
 env/
 
 data/**
-
 .env
 instance/
 
 .idea/
-
 .DS_Store
 Thumbs.db
+/data/
+/migrations/
+/models/
+/scripts/

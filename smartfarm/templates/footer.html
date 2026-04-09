@@ -1,0 +1,52 @@
+<footer class="bg-white border-t border-slate-200 mt-auto">
+    <div class="container mx-auto px-4 py-8 md:py-12">
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-8">
+            <div class="col-span-2 md:col-span-1">
+                <div class="flex items-center gap-2 mb-3">
+                    <div class="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center text-white">
+                        <i data-lucide="sprout" class="w-5 h-5"></i>
+                    </div>
+                    <span class="text-lg font-bold text-green-600">tomAI</span>
+                </div>
+{#                <p class="text-sm text-slate-500 leading-relaxed">#}
+{#                    where tomato meets AI#}
+{#                </p>#}
+            </div>
+
+            <div>
+                <h4 class="text-sm font-bold text-slate-900 mb-3">서비스</h4>
+                <ul class="space-y-2 text-sm text-slate-600">
+                    <li><a href="/prediction" class="hover:text-green-600 transition-colors">생산예측</a></li>
+                    <li><a href="/growth" class="hover:text-green-600 transition-colors">생육분석</a></li>
+                    <li><a href="/monitoring" class="hover:text-green-600 transition-colors">환경제어</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-bold text-slate-900 mb-3">고객지원</h4>
+                <ul class="space-y-2 text-sm text-slate-600">
+                    <li><a href="{{ url_for('question._list') }}" class="hover:text-green-600 transition-colors">상담문의 게시판</a></li>
+                    <li>
+                        <a href="mailto:annea4646@gmail.com" class="inline-flex items-center gap-1 hover:text-green-600 transition-colors">
+                            <span class="underline underline-offset-2">annea4646@gmail.com</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="border-t border-slate-100 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p class="text-xs text-slate-400 text-center md:text-left">
+                © 2026 tomAI. All rights reserved. · Some images were AI-generated.
+            </p>
+            <div class="flex gap-6">
+                <a href="#" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="github" class="w-5 h-5"></i>
+                </a>
+                <a href="#" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="instagram" class="w-5 h-5"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</footer>

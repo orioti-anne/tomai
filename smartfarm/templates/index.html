@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="relative bg-slate-900 rounded-3xl overflow-hidden mb-12 shadow-2xl min-h-[400px] flex items-center">
+    <div class="absolute inset-0 opacity-40 bg-cover bg-center" style="background-image: url('{{ url_for('static', filename='tomato.jpeg') }}');"></div>
+
+    <div class="relative px-8 py-16 md:px-16 text-white w-full">
+        <h1 class="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+            <span class="text-emerald-400">where</span><br>
+            tom<span class="text-emerald-400">ato meets </span>AI
+        </h1>
+        <p class="text-white/60 text-ml md:text-lg max-w-2xl leading-relaxed mt-1 mb-8">
+            환경·생육·시세 통합 분석을 통해 최적의 출하시기를 추천하는 AI 솔루션
+        </p>
+
+        <div class="flex flex-wrap gap-4">
+            <a href="/prediction" class="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
+                <i data-lucide="trending-up"></i> 생산 예측하기
+            </a>
+            <a href="/dashboard" class="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-8 py-4 rounded-xl font-bold border border-white/30 transition-all flex items-center gap-2">
+                <i data-lucide="layout-dashboard"></i> 통합 대시보드
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="py-4 mb-4 overflow-hidden">
+    <div class="mb-8">
+        <p class="text-sm font-bold tracking-[0.25em] text-emerald-600 uppercase mb-3">
+            Smart Features
+        </p>
+        <h2 class="text-lg md:text-xl font-monospace text-slate-900 leading-tight">
+            생육 관리부터 예상 매출까지, 농가의 미래를 한눈에 확인하세요.
+        </h2>
+
+    </div>
+
+    <div class="relative">
+        <button id="featurePrev"
+            class="hidden md:flex absolute -left-5 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white shadow-lg border border-slate-200 items-center justify-center hover:bg-slate-100 transition">
+            <svg class="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+        </button>
+
+        <button id="featureNext"
+            class="hidden md:flex absolute -right-5 top-1/2 -translate-y-1/2 z-10 w-12 h-12 rounded-full bg-white shadow-lg border border-slate-200 items-center justify-center hover:bg-slate-100 transition">
+            <svg class="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+        </button>
+
+        <div id="featureCarousel"
+             class="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-4 no-scrollbar">
+
+            <div class="min-w-[320px] md:min-w-[360px] snap-start bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:shadow-xl transition">
+                <div class="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-6">
+                    <i data-lucide="bar-chart-3" class="w-7 h-7"></i>
+                </div>
+
+                <h3 class="text-2xl font-bold text-slate-900 mb-3">
+                    생산량 및 시세 예측
+                </h3>
+
+                <p class="text-slate-500 leading-relaxed mb-6 min-h-[72px]">
+                     현재 재배 환경과 생육 상태를 분석해 예상 수확량과 예상 수확시점 가격을 예측합니다.
+                </p>
+
+
+                <a href="/prediction" class="text-blue-600 font-semibold text-sm flex items-center gap-1">
+                    예측 실행하기
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+
+            <div class="min-w-[320px] md:min-w-[360px] snap-start bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:shadow-xl transition">
+                <div class="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6">
+                    <i data-lucide="sprout" class="w-7 h-7"></i>
+                </div>
+
+                <h3 class="text-2xl font-bold text-slate-900 mb-3">
+                    생육 성장 예측
+                </h3>
+
+                <p class="text-slate-500 leading-relaxed mb-6 min-h-[72px]">
+                    작물의 성장을 예측하여 최적의 생육 리듬을 유지하기 위한 맞춤형 환경 제어값을 제안합니다.
+                </p>
+
+                <a href="/growth" class="text-emerald-600 font-semibold text-sm flex items-center gap-1">
+                    예측 실행하기
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+
+            <div class="min-w-[320px] md:min-w-[360px] snap-start bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:shadow-xl transition">
+                <div class="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-6">
+                    <i data-lucide="thermometer-sun" class="w-7 h-7"></i>
+                </div>
+
+                <h3 class="text-2xl font-bold text-slate-900 mb-3">
+                    환경 모니터링
+                </h3>
+
+                <p class="text-slate-500 leading-relaxed mb-6 min-h-[72px]">
+                    현장 센서 연결을 통해 환경 정보를 실시간으로 수집하고, 이상 징후를 확인합니다.
+                </p>
+
+
+                <a href="/monitoring" class="text-amber-600 font-semibold text-sm flex items-center gap-1">
+                    현장 모니터링 열기
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+            <div class="min-w-[320px] md:min-w-[360px] snap-start bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:shadow-xl transition">
+                <div class="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-6">
+                    <i data-lucide="calendar-clock" class="w-7 h-7"></i>
+                </div>
+
+                <h3 class="text-2xl font-bold text-slate-900 mb-3">
+                    출하 적기 추천
+                </h3>
+
+                <p class="text-slate-500 leading-relaxed mb-6 min-h-[72px]">
+                    예상 생산량과 시세를 함께 분석하여 최적의 출하 시점을 추천합니다.
+                </p>
+
+
+                <a href="/dashboard" class="text-rose-600 font-semibold text-sm flex items-center gap-1">
+                    대시보드에서 보기
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+            <div class="min-w-[320px] md:min-w-[360px] snap-start bg-white rounded-[2rem] p-8 border border-slate-200 shadow-sm hover:shadow-xl transition">
+                <div class="w-14 h-14 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mb-6">
+                    <i data-lucide="wallet" class="w-7 h-7"></i>
+                </div>
+
+                <h3 class="text-2xl font-bold text-slate-900 mb-3">
+                    예상 매출 계산
+                </h3>
+
+                <p class="text-slate-500 leading-relaxed mb-6 min-h-[72px]">
+                    예상 수확량과 향후 시세를 반영하여 출하 시점 기준의 예상 매출을 제공합니다.
+                </p>
+
+                <a href="/dashboard" class="text-violet-600 font-semibold text-sm flex items-center gap-1">
+                    대시보드에서 보기
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </a>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<style>
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .no-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const carousel = document.getElementById("featureCarousel");
+        const prevBtn = document.getElementById("featurePrev");
+        const nextBtn = document.getElementById("featureNext");
+
+        if (carousel && prevBtn && nextBtn) {
+            const scrollAmount = 380;
+
+            prevBtn.addEventListener("click", () => {
+                carousel.scrollBy({
+                    left: -scrollAmount,
+                    behavior: "smooth"
+                });
+            });
+
+            nextBtn.addEventListener("click", () => {
+                carousel.scrollBy({
+                    left: scrollAmount,
+                    behavior: "smooth"
+                });
+            });
+        }
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    });
+</script>
+{% endblock %}

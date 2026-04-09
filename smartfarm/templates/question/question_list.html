@@ -1,76 +1,168 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="container my-3">
-    <table class="table">
-        <thead>
-        <tr class="table-dark">
-            <th>번호</th>
-            <th>제목</th>
-            <th>작성일시</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% if question_list %}
-        {% for question in question_list.items %}
-        <tr>
-            <td>{{ question_list.total - ((question_list.page-1) * question_list.per_page) - loop.index0 }}</td>
-            <td>
-                <a href="{{ url_for('question.detail', question_id=question.id) }}">{{question.subject}}</a>
-                {% if question.answers_set|length > 0 %}
-                <span class="text-danger small ml-2">{{ question.answers_set|length }}</span>
-                {% endif %}
-            </td>
-            <td>{{question.created_date}}</td>
-        </tr>
-        {% endfor %}
-        {% else %}
-        <tr>
-            <td colspan="3">질문이 없습니다.</td>
-        </tr>
-        {% endif %}
-        </tbody>
-    </table>
 
-    <ul class="pagination justify-content-center">
+<div class="p-4 md:p-8 bg-gray-50 min-h-screen">
+
+    <!--  헤더 -->
+    <div class="flex flex-col md:flex-row md:justify-between md:items-start gap-4 mb-6">
+
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold text-gray-800">상담문의 게시판</h1>
+            <p class="text-gray-400 mt-1 text-sm md:text-base">
+                서비스 이용 관련 궁금한 사항을 남겨주세요.
+            </p>
+        </div>
+
+        <a href="{{ url_for('question.create') }}"
+           class="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-xl font-semibold shadow flex items-center justify-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4 md:w-5 md:h-5"></i>
+            글쓰기
+        </a>
+
+    </div>
+
+    <!--  리스트 박스 -->
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+
+        <!-- 상단 바 -->
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 p-4 md:p-5 border-b border-gray-200">
+
+            <p class="text-sm text-gray-500">
+                전체 {{ question_list.total }}건
+            </p>
+
+{#            <div class="relative w-full md:w-64">#}
+{#                <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-gray-400"></i>#}
+{#                <input type="text"#}
+{#                       placeholder="검색어 입력"#}
+{#                       class="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500">#}
+{#            </div>#}
+
+        </div>
+
+        <!--  리스트 -->
+        <div>
+
+            {% if question_list and question_list.items %}
+                {% for question in question_list.items %}
+
+                <a href="{{ url_for('question.detail', question_id=question.id) }}"
+                   class="block px-4 md:px-6 py-4 md:py-5 border-b border-gray-100 hover:bg-gray-50 transition">
+
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+
+                        <!-- 좌측 -->
+                        <div class="flex items-start gap-3 md:gap-6">
+
+                            <!-- 번호 -->
+                            <span class="text-gray-400 font-semibold w-6 text-right shrink-0 text-sm">
+                                {{ question_list.total - ((question_list.page - 1) * question_list.per_page) - loop.index0 }}
+                            </span>
+
+                            <!-- 제목 + 정보 -->
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-gray-800 font-medium break-words text-sm md:text-base">
+                                        {{ question.subject }}
+                                    </span>
+                                </div>
+
+                                <div class="text-xs text-gray-400 mt-1">
+                                    {{ question.user.name }}
+                                </div>
+
+                                <!-- 모바일 -->
+                                <div class="flex items-center gap-3 text-xs mt-1 md:hidden">
+                                    {% if question.answers_set|length > 0 %}
+                                    <span class="flex items-center gap-1 text-green-600 font-semibold">
+                                        <i data-lucide="check-circle" class="w-3 h-3"></i>
+                                        완료
+                                    </span>
+                                    {% else %}
+                                    <span class="flex items-center gap-1 text-orange-500 font-semibold">
+                                        <i data-lucide="clock" class="w-3 h-3"></i>
+                                        대기
+                                    </span>
+                                    {% endif %}
+
+                                    <span class="text-gray-400">
+                                        {{ question.created_date.strftime('%Y.%m.%d') }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 데스크탑 -->
+                        <div class="hidden md:flex items-center gap-6 text-sm">
+                            {% if question.answers_set|length > 0 %}
+                            <span class="flex items-center gap-1 text-green-600 font-semibold">
+                                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                                답변완료
+                            </span>
+                            {% else %}
+                            <span class="flex items-center gap-1 text-orange-500 font-semibold">
+                                <i data-lucide="clock" class="w-4 h-4"></i>
+                                대기중
+                            </span>
+                            {% endif %}
+
+                            <span class="text-gray-400">
+                                {{ question.created_date.strftime('%Y.%m.%d') }}
+                            </span>
+                        </div>
+
+                    </div>
+
+                </a>
+
+                {% endfor %}
+            {% else %}
+
+            <div class="p-10 text-center text-gray-400">
+                질문이 없습니다.
+            </div>
+
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!--  페이지네이션 -->
+    <div class="flex flex-wrap justify-center mt-6 gap-2">
+
         {% if question_list.has_prev %}
-        <li class="page-item">
-            <a class="page-link" href="?page={{ question_list.prev_num }}">이전</a>
-        </li>
+        <a href="?page={{ question_list.prev_num }}"
+           class="px-3 py-2 border rounded-lg text-sm hover:bg-gray-100">이전</a>
         {% else %}
-        <li class="page-item disabled">
-            <a class="page-link" tabindex="-1" aria-disabled="true" href="#">이전</a>
-        </li>
+        <span class="px-3 py-2 border rounded-lg text-sm text-gray-300">이전</span>
         {% endif %}
 
         {% for page_num in question_list.iter_pages() %}
             {% if page_num %}
-                {% if page_num !=question_list.page %}
-                <li class="page-item">
-                    <a class="page-link" href="?page={{page_num}}">{{page_num}}</a>
-                </li>
+                {% if page_num != question_list.page %}
+                <a href="?page={{ page_num }}"
+                   class="px-3 py-2 border rounded-lg text-sm hover:bg-gray-100">
+                    {{ page_num }}
+                </a>
                 {% else %}
-                <li class="page-item active" aria-current="page">
-                    <a class="page-link" href="#">{{page_num}}</a>
-                </li>
+                <span class="px-3 py-2 bg-green-600 text-white rounded-lg text-sm">
+                    {{ page_num }}
+                </span>
                 {% endif %}
             {% else %}
-                <li class="disabled">
-                    <a class="page-link" href="#">...</a>
-                </li>
+                <span class="px-2">...</span>
             {% endif %}
         {% endfor %}
 
         {% if question_list.has_next %}
-        <li class="page-item">
-            <a class="page-link" href="?page={{ question_list.next_num }}">다음</a>
-        </li>
+        <a href="?page={{ question_list.next_num }}"
+           class="px-3 py-2 border rounded-lg text-sm hover:bg-gray-100">다음</a>
         {% else %}
-        <li class="page-item disabled">
-            <a class="page-link" tabindex="-1" aria-disabled="true" href="#">다음</a>
-        </li>
+        <span class="px-3 py-2 border rounded-lg text-sm text-gray-300">다음</span>
         {% endif %}
-    </ul>
 
-    <a href="{{url_for('question.create')}}" class="btn btn-primary">질문 등록하기</a>
+    </div>
+
 </div>
+
 {% endblock %}

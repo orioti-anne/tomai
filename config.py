@@ -12,14 +12,21 @@ DB_PORT = os.getenv("DB_PORT")
 DB_SERVICE = os.getenv("DB_SERVICE")
 ORACLE_PATH = os.getenv("ORACLE_CLIENT_PATH")
 
+WEATHER_SERVICE_KEY = os.getenv("WEATHER_SERVICE_KEY")
+
 try:
     if platform.system() == "Darwin":
         oracledb.init_oracle_client(lib_dir=ORACLE_PATH)
     elif platform.system() == "Windows":
         oracledb.init_oracle_client(lib_dir=r"C:\oraclexe\instantclient_19_25")
 except Exception as e:
-    print(f"⚠️ Oracle 설정 알림: {e}")
+    print(f"Oracle 설정 알림: {e}")
 
-SQLALCHEMY_DATABASE_URI = f"oracle+oracledb://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_SERVICE}"
+SQLALCHEMY_DATABASE_URI = (
+    f"oracle+oracledb://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_SERVICE}"
+)
 SQLALCHEMY_TRACK_MODIFICATIONS = False
 SECRET_KEY = os.getenv("FLASK_SECRET_KEY", "dev")
+
+ENV_INGEST_URL = "http://127.0.0.1:5000/api/environment/ingest"
+VIRTUAL_SENSOR_ENABLED_BY_DEFAULT = False

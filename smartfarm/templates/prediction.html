@@ -1,0 +1,624 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="space-y-8">
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-800 tracking-tight">생산량 및 시세 예측</h2>
+            <p class="text-slate-500 mt-1">예상 수확량과 미래 시세를 확인하여 가장 유리한 출하 시기를 결정하세요.</p>
+        </div>
+    </div>
+</div>
+
+<div class="p-6 bg-gray-50 min-h-screen">
+    <div class="w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+        <div class="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
+            <h2 class="text-lg font-bold text-green-700 flex items-center gap-2 mb-6">
+                <i data-lucide="sprout" class="w-5 h-5"></i>
+                재배 환경 설정
+            </h2>
+
+            <div class="space-y-5">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-2">대상 농가 선택</label>
+                        <select
+                            id="farmSelect"
+                            class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm"
+                        >
+                            <option value="">-- 농가 선택 --</option>
+                            {% for farm in farm_list %}
+                            <option value="{{ farm.farm_id }}">{{ farm.farm_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-2">재배 정보 선택</label>
+                        <select id="cultSelect" class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 text-sm" disabled>
+                            <option value="">-- 농가를 먼저 선택하세요 --</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="formGuide" class="rounded-xl bg-gray-50 border border-dashed border-gray-200 px-4 py-5 text-sm text-gray-400">
+                    농가를 선택한 뒤, 기존 재배 정보를 불러오거나 새 재배 정보를 직접 입력해 주세요.
+                </div>
+                <div id="readonlyNotice"></div>
+
+                <div id="formSection" class="hidden">
+                    <div class="my-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                        <div id="cult_name_preview" class="text-lg font-bold text-blue-700">
+                            재배명 미리보기
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">
+                                품목 <span class="text-red-500">*</span>
+                            </label>
+                            <select id="item" class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm">
+                                <option value="">선택하세요</option>
+                                <option value="완숙토마토">완숙토마토</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">
+                                작기 <span class="text-red-500">*</span>
+                            </label>
+                            <select id="crop_cycle" class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm">
+                                <option value="">선택하세요</option>
+                                {% for i in range(1, 11) %}
+                                <option value="{{ i }}">{{ i }}작기</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">품종</label>
+                            <input id="item_variety" placeholder="예: 레드칸, 수퍼탑 등" class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm"/>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">
+                                정식일 <span class="text-red-500">*</span>
+                            </label>
+                            <input id="planting_date" type="date" class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm"/>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">
+                                식부면적 (3.3㎡) <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                id="planting_area"
+                                type="number"
+                                step="0.01"
+                                placeholder="0.00"
+                                class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm"/>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">재식밀도 (주/㎡)</label>
+                            <input
+                                id="planting_density"
+                                type="number"
+                                step="0.1"
+                                placeholder="예: 10"
+                                class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">온실종류 <span class="text-red-500">*</span></label>
+                            <select id="house_type" class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm">
+                                <option value="">선택하세요</option>
+                                <option value="비닐">비닐</option>
+                                <option value="유리">유리</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-600 mb-2">온실유형 <span class="text-red-500">*</span></label>
+                            <select id="house_form" class="w-full p-3 border border-gray-200 rounded-lg bg-gray-50 focus:ring-2 focus:ring-green-500 text-sm">
+                                <option value="">선택하세요</option>
+                                <option value="연동">연동</option>
+                                <option value="단동">단동</option>
+                                <option value="광폭">광폭</option>
+                                <option value="연동양액">연동양액</option>
+                                <option value="기타">기타</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button
+                        id="predictBtn"
+                        class="w-full py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold flex items-center justify-center gap-2 shadow-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                        <i data-lucide="zap" class="w-4 h-4"></i>
+                        AI 분석 및 예측 실행
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div
+            id="resultArea"
+            class="rounded-2xl border-2 border-dashed border-gray-200 p-6 min-h-[500px] flex items-center justify-center bg-white/50"
+        >
+            <div id="emptyState" class="text-center text-gray-400">
+                <i data-lucide="loader-2" id="loadingIcon" class="w-10 h-10 mx-auto mb-3 opacity-20"></i>
+                <p id="statusMsg">농가 정보를 불러오고 예측 버튼을 눌러주세요.</p>
+            </div>
+
+            <div id="resultState" class="hidden w-full"></div>
+        </div>
+    </div>
+</div>
+
+<script id="farm-data-json" type="application/json">{{ farm_data_json | safe }}</script>
+{% endblock %}
+
+{% block script %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+
+    let farmData = [];
+    try {
+        const farmDataText = document.getElementById('farm-data-json')?.textContent || '[]';
+        farmData = JSON.parse(farmDataText);
+    } catch (error) {
+        console.error('farm_data_json parse error:', error);
+        farmData = [];
+    }
+
+    const farmSelect = document.getElementById('farmSelect');
+    const cultSelect = document.getElementById('cultSelect');
+    const predictBtn = document.getElementById('predictBtn');
+    const formSection = document.getElementById('formSection');
+    const formGuide = document.getElementById('formGuide');
+    const readonlyNotice = document.getElementById('readonlyNotice');
+    const cultNamePreview = document.getElementById('cult_name_preview');
+    const emptyState = document.getElementById('emptyState');
+    const resultState = document.getElementById('resultState');
+    const loadingIcon = document.getElementById('loadingIcon');
+    const statusMsg = document.getElementById('statusMsg');
+
+    const fields = {
+        item: document.getElementById('item'),
+        cropCycle: document.getElementById('crop_cycle'),
+        variety: document.getElementById('item_variety'),
+        date: document.getElementById('planting_date'),
+        area: document.getElementById('planting_area'),
+        density: document.getElementById('planting_density'),
+        houseType: document.getElementById('house_type'),
+        houseForm: document.getElementById('house_form')
+    };
+
+    function setFormEditable(editable) {
+        Object.values(fields).forEach(field => {
+            field.disabled = !editable;
+
+            if (editable) {
+                field.classList.remove('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+                field.classList.add('bg-gray-50');
+            } else {
+                field.classList.remove('bg-gray-50');
+                field.classList.add('bg-gray-100', 'text-gray-500', 'cursor-not-allowed');
+            }
+        });
+    }
+
+    function getSelectedFarmName() {
+        return farmSelect.options[farmSelect.selectedIndex]?.text || '';
+    }
+
+    function updateCultNamePreview() {
+        const farmName = getSelectedFarmName();
+        const plantingDate = fields.date.value;
+        const surveyYear = plantingDate
+            ? new Date(plantingDate).getFullYear()
+            : new Date().getFullYear();
+        const item = fields.item.value;
+        const cycle = fields.cropCycle.value;
+
+        const cycleText = cycle ? `${cycle}작기` : '';
+
+        if (farmName && item && cycle) {
+            cultNamePreview.innerText = `${farmName} ${surveyYear}년 ${item} ${cycleText}`;
+        } else if (farmName && farmSelect.value) {
+            cultNamePreview.innerHTML = `${farmName} <span class="text-blue-300 font-normal">(품목/작기/작성일 선택 시 완성)</span>`;
+        } else {
+            cultNamePreview.innerText = '재배명 미리보기';
+        }
+    }
+
+    function resetForm() {
+        fields.item.value = '';
+        fields.cropCycle.value = '';
+        fields.variety.value = '';
+        fields.date.value = '';
+        fields.area.value = '';
+        fields.density.value = '';
+        fields.houseType.value = '';
+        fields.houseForm.value = '';
+        updateCultNamePreview();
+    }
+
+    function hideForm() {
+        formSection.classList.add('hidden');
+        formGuide.classList.remove('hidden');
+        readonlyNotice.classList.add('hidden');
+        setFormEditable(true);
+        resetForm();
+    }
+
+    function showForm() {
+        formSection.classList.remove('hidden');
+        formGuide.classList.add('hidden');
+        updateCultNamePreview();
+    }
+
+    function populateForm(cult) {
+        fields.item.value = cult.item || '';
+        fields.cropCycle.value = cult.crop_cycle ? String(cult.crop_cycle) : '';
+        fields.variety.value = cult.item_variety || '';
+        fields.date.value = cult.planting_date || '';
+        fields.area.value = cult.planting_area || '';
+        fields.density.value = cult.planting_density || '';
+        fields.houseType.value = cult.house_type || '';
+        fields.houseForm.value = cult.house_form || '';
+        updateCultNamePreview();
+    }
+
+    function formatNumber(value) {
+        if (value === null || value === undefined || value === '') {
+            return '-';
+        }
+        return Number(value).toLocaleString('ko-KR');
+    }
+
+    function setLoadingState(isLoading) {
+        if (isLoading) {
+            loadingIcon.classList.add('animate-spin', 'opacity-100');
+            statusMsg.innerText = 'AI 모델이 생육 데이터를 분석 중입니다...';
+            predictBtn.disabled = true;
+        } else {
+            loadingIcon.classList.remove('animate-spin', 'opacity-100');
+            statusMsg.innerText = '농가 정보를 불러오고 예측 버튼을 눌러주세요.';
+            predictBtn.disabled = false;
+        }
+    }
+
+    function showEmptyState(message) {
+        resultState.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+        if (message) {
+            statusMsg.innerText = message;
+        }
+    }
+
+    function renderCultivationOptions(farmId) {
+        cultSelect.innerHTML = '';
+
+        if (!farmId) {
+            cultSelect.disabled = true;
+            cultSelect.classList.add('bg-gray-50');
+            cultSelect.classList.remove('bg-white');
+            cultSelect.innerHTML = '<option value="">-- 농가를 먼저 선택하세요 --</option>';
+            return;
+        }
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = '-- 재배 정보 선택 --';
+        cultSelect.appendChild(defaultOption);
+
+        const newOption = document.createElement('option');
+        newOption.value = 'new';
+        newOption.textContent = '새 재배 정보 직접 입력';
+        cultSelect.appendChild(newOption);
+
+        const farm = farmData.find(f => String(f.farm_id) === String(farmId));
+
+        if (farm && Array.isArray(farm.cultivations)) {
+            farm.cultivations.forEach(cult => {
+                const option = document.createElement('option');
+                option.value = String(cult.cult_id);
+                option.textContent = cult.cult_name || `${farm.farm_name} 재배`;
+                cultSelect.appendChild(option);
+            });
+        }
+
+        cultSelect.disabled = false;
+        cultSelect.classList.remove('bg-gray-50');
+        cultSelect.classList.add('bg-white');
+        cultSelect.value = '';
+    }
+
+    function updateUIWithResults(res) {
+        const isFallback = res.prediction_source === 'fallback';
+
+        const badgeClass = isFallback
+            ? 'bg-amber-100 text-amber-800'
+            : 'bg-emerald-100 text-emerald-800';
+
+        const badgeText = isFallback ? '임시 추정' : 'AI 예측';
+
+        const headerClass = isFallback
+            ? 'from-amber-500 to-orange-400'
+            : 'from-green-600 to-emerald-500';
+
+        const infoBoxClass = isFallback
+            ? 'bg-amber-50 border border-amber-200 rounded-2xl p-5'
+            : 'bg-emerald-50 border border-emerald-200 rounded-2xl p-5';
+
+        const salesBoxClass = isFallback
+            ? 'bg-amber-50 border border-amber-200 rounded-2xl p-6'
+            : 'bg-yellow-50 border border-yellow-200 rounded-2xl p-6';
+
+        const salesTitleClass = isFallback ? 'text-amber-700' : 'text-yellow-700';
+        const salesValueClass = isFallback ? 'text-amber-900' : 'text-yellow-900';
+        const salesTextClass = isFallback ? 'text-amber-800' : 'text-yellow-800';
+
+        const harvestDateText =
+            res.harvest_status === 'finished'
+                ? '수확 종료 가능성 높음'
+                : (res.expected_harvest_date || '-');
+
+        const harvestDaysText =
+            res.harvest_status === 'finished'
+                ? '-'
+                : `${formatNumber(res.avg_days_to_peak_harvest)}일`;
+
+        const harvestGuideText =
+            res.harvest_message
+                ? res.harvest_message
+                : `현재 입력된 재배 조건을 기준으로, ${res.expected_harvest_date || '-'} 전후에 약 ${formatNumber(res.expected_quantity)}kg 수확이 예상되며, 예상 매출은 약 ${formatNumber(res.expected_sales)}원입니다.`;
+
+        const baseDescription = isFallback
+            ? (res.prediction_message || '환경데이터 부족으로 임시 기준값이 적용되었습니다.')
+            : (res.prediction_message || '재배 및 환경데이터를 기반으로 계산되었습니다.');
+
+        resultState.innerHTML = `
+            <div class="space-y-6">
+                <div class="bg-gradient-to-r ${headerClass} rounded-2xl p-6 text-white shadow">
+                    <div class="flex items-center justify-between gap-3 mb-3">
+                        <div class="text-sm opacity-90">예측 결과</div>
+                        <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${badgeClass}">
+                            ${badgeText}
+                        </span>
+                    </div>
+
+                    <div class="text-3xl font-bold mb-2">
+                        예상 출하시기: ${harvestDateText}
+                    </div>
+
+                </div>
+
+                <div class="${infoBoxClass}">
+                    <div class="text-sm font-semibold ${isFallback ? 'text-amber-800' : 'text-emerald-800'} mb-2">
+                        ${isFallback ? '임시 추정 안내' : '예측 상태'}
+                    </div>
+                    <div class="text-sm leading-relaxed ${isFallback ? 'text-amber-700' : 'text-emerald-700'}">
+                        ${baseDescription}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                        <div class="text-sm text-gray-500 mb-1">주요 수확까지 예상 기간</div>
+                        <div class="text-2xl font-bold text-gray-800">
+                            ${harvestDaysText}
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                        <div class="text-sm text-gray-500 mb-1">${isFallback ? '임시 ㎡당 예상 생산량' : '㎡당 예상 생산량'}</div>
+                        <div class="text-2xl font-bold text-gray-800">
+                            ${formatNumber(res.avg_yield_per_m2)} kg
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                        <div class="text-sm text-gray-500 mb-1">${isFallback ? '임시 총 예상 생산량' : '총 예상 생산량'}</div>
+                        <div class="text-2xl font-bold text-green-700">
+                            ${formatNumber(res.expected_quantity)} kg
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                        <div class="text-sm text-gray-500 mb-1">예상 kg당 시세</div>
+                        <div class="text-2xl font-bold text-blue-700">
+                            ${formatNumber(res.expected_price_per_kg)}원
+                        </div>
+                    </div>
+                </div>
+
+                <div class="${salesBoxClass}">
+                    <div class="text-sm ${salesTitleClass} mb-2 font-semibold">
+                        ${isFallback ? '임시 예상 총매출' : '예상 총매출'}
+                    </div>
+                    <div class="text-4xl font-bold ${salesValueClass}">
+                        ${formatNumber(res.expected_sales)}원
+                    </div>
+
+                    <div class="mt-4 text-sm ${salesTextClass} leading-relaxed">
+                        ${harvestGuideText}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        emptyState.classList.add('hidden');
+        resultState.classList.remove('hidden');
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+
+    hideForm();
+
+    farmSelect.addEventListener('change', (event) => {
+        const farmId = event.target.value;
+        renderCultivationOptions(farmId);
+        hideForm();
+        showEmptyState('농가 정보를 불러오고 예측 버튼을 눌러주세요.');
+        updateCultNamePreview();
+    });
+
+    cultSelect.addEventListener('change', (event) => {
+        const cultId = event.target.value;
+        const farmId = farmSelect.value;
+
+        if (!farmId || !cultId) {
+            hideForm();
+            return;
+        }
+
+        if (cultId === 'new') {
+            resetForm();
+            showForm();
+            readonlyNotice.classList.add('hidden');
+            setFormEditable(true);
+            return;
+        }
+
+        const farm = farmData.find(f => String(f.farm_id) === String(farmId));
+        if (!farm || !Array.isArray(farm.cultivations)) {
+            hideForm();
+            return;
+        }
+
+        const cult = farm.cultivations.find(c => String(c.cult_id) === String(cultId));
+        if (!cult) {
+            hideForm();
+            return;
+        }
+
+        populateForm(cult);
+        showForm();
+        readonlyNotice.classList.remove('hidden');
+        setFormEditable(false);
+    });
+
+    fields.item.addEventListener('change', updateCultNamePreview);
+    fields.cropCycle.addEventListener('change', updateCultNamePreview);
+    fields.date.addEventListener('change', updateCultNamePreview);
+    fields.date.addEventListener('input', updateCultNamePreview);
+
+    predictBtn.addEventListener('click', async () => {
+        const farmId = farmSelect.value;
+        const selectedCultId = cultSelect.value === 'new' ? null : cultSelect.value;
+
+        const item = fields.item.value;
+        const crop_cycle = fields.cropCycle.value;
+        const item_variety = fields.variety.value;
+        const planting_date = fields.date.value;
+        const planting_area = fields.area.value;
+        const planting_density = fields.density.value;
+        const house_type = fields.houseType.value;
+        const house_form = fields.houseForm.value;
+
+        if (!farmId) { alert('대상 농가를 선택해주세요.'); farmSelect.focus(); return; }
+        if (!item) { alert('품목을 선택해주세요.'); fields.item.focus(); return; }
+        if (!crop_cycle) { alert('작기를 선택해주세요.'); fields.cropCycle.focus(); return; }
+        if (!planting_date) { alert('정식일을 선택해주세요.'); fields.date.focus(); return; }
+        if (!planting_area || planting_area <= 0) { alert('식부면적을 입력해주세요.'); fields.area.focus(); return; }
+        if (!house_type) { alert('온실종류를 선택해주세요.'); fields.houseType.focus(); return; }
+        if (!house_form) { alert('온실유형을 선택해주세요.'); fields.houseForm.focus(); return; }
+
+        const payload = {
+            farm_id: farmId,
+            cult_id: selectedCultId,
+            item,
+            crop_cycle,
+            item_variety: fields.variety.value,
+            planting_date,
+            planting_area,
+            planting_density: fields.density.value,
+            house_type,
+            house_form
+        };
+
+        setLoadingState(true);
+        showEmptyState('AI 모델이 생육 데이터를 분석 중입니다...');
+
+        try {
+            const response = await fetch('/prediction/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                if (!selectedCultId && data.cult_id) {
+                    const farm = farmData.find(
+                        f => String(f.farm_id) === String(farmId)
+                    );
+
+                    if (farm) {
+                        if (!Array.isArray(farm.cultivations)) {
+                            farm.cultivations = [];
+                        }
+
+                        const alreadyExists = farm.cultivations.some(
+                            c => String(c.cult_id) === String(data.cult_id)
+                        );
+
+                        if (!alreadyExists) {
+                            farm.cultivations.push({
+                                cult_id: data.cult_id,
+                                cult_name: data.cult_name,
+                                item,
+                                crop_cycle,
+                                item_variety,
+                                planting_date,
+                                planting_area,
+                                planting_density,
+                                house_type,
+                                house_form
+                            });
+
+                            renderCultivationOptions(farmId);
+                            cultSelect.value = String(data.cult_id);
+                            cultSelect.dispatchEvent(new Event('change'));
+                        }
+                    }
+                }
+
+                updateUIWithResults(data.results);
+
+            } else {
+                showEmptyState('예측 결과를 불러오지 못했습니다.');
+                alert('예측 오류: ' + data.message);
+            }
+
+        } catch (error) {
+            console.error(error);
+            showEmptyState('서버 통신 오류가 발생했습니다.');
+            alert('서버 통신 오류가 발생했습니다.');
+        } finally {
+            setLoadingState(false);
+        }
+    });
+});
+</script>
+{% endblock %}

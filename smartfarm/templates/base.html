@@ -2,24 +2,42 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>bulletin</title>
-    <link rel="stylesheet" href="{{url_for('static', filename='style.css')}}">
-    <link rel="stylesheet" href="{{url_for('static', filename='bootstrap.min.css')}}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>tomAI</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+        body { font-family: 'Pretendard', sans-serif; }
+    </style>
 </head>
-<body>
+<body class="bg-[#F8FAFC] text-slate-900 min-h-screen flex flex-col">
 
-{% include "navbar.html" %}
+    {% include "navbar.html" %}
 
-{% block content %}
-{% endblock %}
+    <main id="main-content" class="container mx-auto px-4 py-8 flex-grow">
+        {% block content %}{% endblock %}
+    </main>
 
-<script src="{{ url_for('static', filename='jquery-3.7.1.min.js') }}"></script>
-<script src="{{ url_for('static', filename='bootstrap.min.js') }}"></script>
+    {% include "footer.html" %}
 
-{% block script %}
-{% endblock %}
 
+    <script src="{{ url_for('static', filename='main.js') }}"></script>
+
+    <script>
+        window.addEventListener('load', () => {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+    </script>
+
+    {% block script %}{% endblock %}
 </body>
 </html>
-

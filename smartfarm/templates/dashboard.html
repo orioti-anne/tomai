@@ -1,0 +1,834 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set quantity = prediction.expected_quantity if prediction and prediction.expected_quantity is not none else 0 %}
+{% set sales = prediction.expected_sales if prediction and prediction.expected_sales is not none else 0 %}
+{% set price_per_kg = prediction.expected_price_per_kg if prediction and prediction.expected_price_per_kg is not none else 0 %}
+{% set yield_per_m2 = prediction.avg_yield_per_m2 if prediction and prediction.avg_yield_per_m2 is not none else 0 %}
+{% set planting_area = prediction.planting_area if prediction and prediction.planting_area is not none else 0 %}
+{% set density = prediction.planting_density if prediction and prediction.planting_density is not none else 0 %}
+{% set avg_days = prediction.avg_days_to_peak_harvest if prediction and prediction.avg_days_to_peak_harvest is not none else 0 %}
+{% set selected_cult_id = selected_cult.cult_id if selected_cult else none %}
+
+{% set item = prediction.item if prediction and prediction.item else '-' %}
+{% set item_variety = prediction.item_variety if prediction and prediction.item_variety else '-' %}
+{% set house_type = prediction.house_type if prediction and prediction.house_type else '-' %}
+{% set house_form = prediction.house_form if prediction and prediction.house_form else '-' %}
+
+{% set planting_date = prediction.planting_date if prediction else none %}
+{% set harvest_date = prediction.expected_harvest_date if prediction else none %}
+
+{% set prediction_source = prediction.prediction_source if prediction and prediction.prediction_source else 'model' %}
+{% set prediction_message = prediction.prediction_message if prediction and prediction.prediction_message else '' %}
+{% set prediction_confidence = prediction.prediction_confidence if prediction and prediction.prediction_confidence else '' %}
+{% set sample_count = prediction.sample_count if prediction and prediction.sample_count is not none else 0 %}
+{% set latest_market_price = prediction.latest_market_price if prediction and prediction.latest_market_price is not none else 0 %}
+
+{% set total_days = ((harvest_date - planting_date).days) if planting_date and harvest_date else none %}
+{% set elapsed_days = ((today - planting_date).days) if planting_date and today else none %}
+{% set remaining_days = ((harvest_date - today).days) if harvest_date and today else none %}
+
+{% if total_days and elapsed_days is not none and total_days > 0 %}
+    {% set progress = ((elapsed_days / total_days) * 100) | round(0, 'floor') | int %}
+    {% if progress < 0 %}
+        {% set progress = 0 %}
+    {% elif progress > 100 %}
+        {% set progress = 100 %}
+    {% endif %}
+{% else %}
+    {% set progress = 0 %}
+{% endif %}
+
+{% set prediction_source = prediction.prediction_source if prediction and prediction_source else '' %}
+{% set prediction_message = prediction.prediction_message if prediction and prediction_message else '' %}
+{% set prediction_confidence = prediction.prediction_confidence if prediction and prediction_confidence else '' %}
+
+{% set is_fallback = prediction_source == 'fallback' %}
+
+{% set price_day_95 = prediction.price_day_95|default(0, true) if prediction else 0 %}
+{% set price_day_105 = prediction.price_day_105|default(0, true) if prediction else 0 %}
+{% set price_day_115 = prediction.price_day_115|default(0, true) if prediction else 0 %}
+
+{% set env_in_temp = latest_env.daily_in_temp|default(none, true) if latest_env else none %}
+{% set env_humidity = latest_env.daily_in_humidity|default(none, true) if latest_env else none %}
+{% set env_co2 = latest_env.daily_in_co2|default(none, true) if latest_env else none %}
+{% set env_solar = latest_env.daily_acc_solar|default(none, true) if latest_env else none %}
+{% set env_measure_date = latest_env.measure_date if latest_env and latest_env.measure_date else none %}
+
+<div class="space-y-8">
+
+    <!-- 상단 -->
+    <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-800 tracking-tight">
+                안녕하세요, {{ username }}님!
+            </h2>
+            <p class="text-slate-500 mt-1">
+                {% if selected_cult %}
+                    <span class="font-bold {% if is_fallback %}text-amber-700{% else %}text-green-700{% endif %}">{{ selected_cult.cult_name }}</span>
+                    예측 현황입니다.
+                {% else %}
+                    현재 예측 결과를 확인할 수 있습니다.
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="flex flex-col md:flex-row gap-3">
+            <form method="get" action="{{ url_for('dashboard.index') }}">
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm min-w-[260px]">
+                    <label class="block text-xs text-slate-400 font-bold mb-2">재배 선택</label>
+                    <select
+                        name="cult_id"
+                        onchange="this.form.submit()"
+                        class="w-full bg-transparent text-sm font-bold text-slate-700 outline-none"
+                    >
+                        {% for cult in cult_list %}
+                            <option value="{{ cult.cult_id }}"
+                                {% if selected_cult and cult.cult_id == selected_cult.cult_id %}selected{% endif %}>
+                                {{ cult.cult_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </form>
+
+            <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-3 min-w-[240px]">
+                <div class="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+                    {% if weather and weather.icon == 'sun' %}
+                        <i data-lucide="sun-medium"></i>
+                    {% elif weather and weather.icon == 'cloud' %}
+                        <i data-lucide="cloud"></i>
+                    {% else %}
+                        <i data-lucide="cloud-sun"></i>
+                    {% endif %}
+                </div>
+                <div>
+                    <p class="text-xs text-slate-400 font-bold">
+                        오늘의 날씨
+                        {% if farm and farm.region_l1 and farm.region_l2 %}
+                            · {{ farm.region_l1 }} {{ farm.region_l2 }}
+                        {% endif %}
+                    </p>
+                    <p class="text-sm font-bold text-slate-700">
+                        {% if weather %}
+                            {{ weather.sky }}
+                            {% if weather.temp is not none %}
+                                ({{ weather.temp }}°C)
+                            {% endif %}
+                        {% else %}
+                            날씨 정보 없음
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if not prediction %}
+    <div class="bg-amber-50 border border-amber-200 text-amber-800 px-5 py-4 rounded-2xl">
+        <a href="/prediction/">
+            아직 선택한 재배에 대한 예측 결과가 없습니다. 먼저 예측을 실행해 주세요 &gt;
+        </a>
+    </div>
+    {% else %}
+
+    <!-- 상단 KPI -->
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+
+        <div class="bg-white px-8 py-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="relative z-10">
+                <span class="text-slate-500 font-bold text-sm">권장 출하일</span>
+                <div class="flex items-end gap-2 mt-2">
+                    <div class="text-4xl font-extrabold text-slate-900">
+                        {% if harvest_date %}
+                            {{ harvest_date.strftime('%m.%d') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mt-4 text-xs font-bold text-slate-500">
+                    {% if total_days is not none %}
+                        정식 후 {{ total_days }}일차 출하 권장
+                    {% else %}
+                        수확일 계산 정보 없음
+                    {% endif %}
+                </div>
+            </div>
+            <i data-lucide="calendar-days" class="absolute -right-4 -bottom-4 w-32 h-32 text-slate-50 opacity-[0.04] group-hover:scale-110 transition-transform"></i>
+        </div>
+
+        <div class="bg-white px-8 py-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="relative z-10">
+                <span class="text-slate-500 font-bold text-sm">예측 출하단가</span>
+                <div class="flex items-end gap-2 mt-2">
+                    <div class="text-4xl font-extrabold text-slate-900">
+                        {{ "{:,.0f}".format(price_per_kg) }}
+                    </div>
+                    <div class="text-slate-400 font-bold pb-1">원/kg</div>
+                </div>
+                <div class="mt-4 text-xs font-bold text-slate-500">
+                     {% if total_days is not none %}
+                        정식일 기준 {{ total_days }}일차 예상 가격
+                    {% else %}
+                        수확일 계산 정보 없음
+                    {% endif %}
+
+                </div>
+            </div>
+            <i data-lucide="scale" class="absolute -right-4 -bottom-4 w-32 h-32 text-slate-50 opacity-[0.04] group-hover:scale-110 transition-transform"></i>
+        </div>
+
+        <div class="bg-white px-8 py-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="relative z-10">
+                <span class="text-slate-500 font-bold text-sm">
+                    {% if is_fallback %}예측 수확량 -임시추정{% else %}예측 수확량{% endif %}
+                </span>
+                <div class="flex items-end gap-2 mt-2">
+                    <div class="text-4xl font-extrabold {% if is_fallback %}text-amber-600{% else %}text-green-600{% endif %}">
+                        {{ "{:,.0f}".format(quantity) }}
+                    </div>
+                    <div class="text-slate-400 font-bold pb-1">kg</div>
+                </div>
+                <div class="mt-4 text-xs font-bold text-slate-500">
+                    평당 약 {{ "{:,.1f}".format(yield_per_m2) }}kg 수확 기대
+                </div>
+            </div>
+            <i data-lucide="shopping-basket" class="absolute -right-4 -bottom-4 w-32 h-32 text-slate-50 opacity-[0.04] group-hover:scale-110 transition-transform"></i>
+        </div>
+
+        <div class="bg-white px-8 py-6 rounded-[2.5rem] shadow-sm border border-slate-100 relative overflow-hidden group">
+            <div class="relative z-10">
+                <span class="text-slate-500 font-bold text-sm">
+                    {% if is_fallback %}예상 매출 규모 -임시추정{% else %}예상 매출 규모{% endif %}
+                </span>
+                <div class="flex items-end gap-2 mt-2">
+                    <div class="text-4xl tracking-tight font-extrabold {% if is_fallback %}text-amber-600{% else %}text-green-600{% endif %}">
+                        {{ "{:,.0f}".format(sales) }}
+                    </div>
+                    <div class="text-slate-400 font-bold pb-1">원</div>
+                </div>
+                <div class="mt-4 text-xs font-bold text-slate-500">
+                    예측 출하단가 × 예측 수확량
+                </div>
+            </div>
+            <i data-lucide="badge-won" class="absolute -right-4 -bottom-4 w-32 h-32 text-white opacity-[0.08]"></i>
+        </div>
+
+    </div>
+
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- 1. 예측 판매단가 -->
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div class="flex items-center justify-between mb-6 gap-3">
+                <h3 class="text-lg font-bold text-slate-800">수확기간 예상 출하가격 추이</h3>
+                <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
+                    {% if prediction and prediction.price_date_95 and prediction.price_date_105 and prediction.price_date_115 %}
+                        {{ prediction.price_date_95.strftime('%m.%d') }} ~ {{ prediction.price_date_115.strftime('%m.%d') }}
+                    {% else %}
+                        날짜 없음
+                    {% endif %}
+                </span>
+            </div>
+
+            <div class="h-[200px]">
+                <canvas id="harvestPriceChart"></canvas>
+            </div>
+        <div class="mt-3 flex items-center justify-center gap-4 text-xs text-slate-500">
+            <div class="flex items-center gap-1">
+                <div class="w-3 h-3 rounded bg-green-500"></div>
+                <span>예상 출하단가</span>
+            </div>
+
+            <div class="flex items-center gap-1">
+                <div class="w-4 border-t-2 border-dashed border-slate-400"></div>
+                    {% if prediction.latest_market_price %}
+                    <p class="text-xs text-slate-500">
+                        <span>{{ prediction.price_date.strftime('%m.%d') if prediction.price_date else '-' }} 기준 도매가</span>
+                    </p>
+                    {% endif %}
+            </div>
+        </div>
+
+            <div class="flex justify-center gap-2 mt-5">
+                {% set max_price = [
+                    prediction.price_day_95 or 0,
+                    prediction.price_day_105 or 0,
+                    prediction.price_day_115 or 0
+                ] | max %}
+
+                <div class="flex-none inline-flex items-center whitespace-nowrap px-4 py-2 rounded-xl border text-xs font-bold
+                    {% if (prediction.price_day_95 or 0) == max_price %}
+                        bg-emerald-50 border-emerald-200 text-emerald-700
+                    {% else %}
+                        bg-slate-50 border-slate-100 text-slate-700
+                    {% endif %}
+                ">
+                    <span>{{ prediction.price_date_95.strftime('%m.%d') if prediction and prediction.price_date_95 else '95일차' }}</span>
+                    <span class="mx-1">·</span>
+                    <span>{{ "{:,.0f}".format(prediction.price_day_95 or 0) }}원/kg</span>
+                </div>
+
+                <div class="flex-none inline-flex items-center whitespace-nowrap px-4 py-2 rounded-xl border text-xs font-bold
+                    {% if (prediction.price_day_105 or 0) == max_price %}
+                        bg-emerald-50 border-emerald-200 text-emerald-700
+                    {% else %}
+                        bg-slate-50 border-slate-100 text-slate-700
+                    {% endif %}
+                ">
+                    <span>{{ prediction.price_date_105.strftime('%m.%d') if prediction and prediction.price_date_105 else '105일차' }}</span>
+                    <span class="mx-1">·</span>
+                    <span>{{ "{:,.0f}".format(prediction.price_day_105 or 0) }}원/kg</span>
+                </div>
+
+                <div class="flex-none inline-flex items-center whitespace-nowrap px-4 py-2 rounded-xl border text-xs font-bold
+                    {% if (prediction.price_day_115 or 0) == max_price %}
+                        bg-emerald-50 border-emerald-200 text-emerald-700
+                    {% else %}
+                        bg-slate-50 border-slate-100 text-slate-700
+                    {% endif %}
+                ">
+                    <span>{{ prediction.price_date_115.strftime('%m.%d') if prediction and prediction.price_date_115 else '115일차' }}</span>
+                    <span class="mx-1">·</span>
+                    <span>{{ "{:,.0f}".format(prediction.price_day_115 or 0) }}원/kg</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. 수확 진행율 -->
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-bold text-slate-800">재배 진행율</h3>
+                {% if remaining_days is not none %}
+                    <span class="text-xs font-bold px-3 py-1 rounded-full
+                        {% if remaining_days > 0 %}
+                            bg-green-100 text-green-700
+                        {% elif remaining_days == 0 %}
+                            bg-red-100 text-red-700
+                        {% else %}
+                            bg-slate-100 text-slate-600
+                        {% endif %}
+                    ">
+                        {% if remaining_days > 0 %}
+                            {{ remaining_days }}일 남음
+                        {% elif remaining_days == 0 %}
+                            수확 적기
+                        {% else %}
+                            시점 경과
+                        {% endif %}
+                    </span>
+                {% endif %}
+            </div>
+
+            <div>
+                <div class="mt-14 flex items-center justify-between text-sm font-bold text-slate-600">
+                    <div>
+                        <p class="text-slate-400 text-xs font-medium">재배 시작일</p>
+                        <p>{{ planting_date.strftime('%Y.%m.%d') if planting_date else '-' }}</p>
+                    </div>
+                    <div class="text-center">
+                        <p class="text-slate-400 text-xs font-medium">오늘</p>
+                        <p>{{ today.strftime('%Y.%m.%d') if today else '-' }}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-slate-400 text-xs font-medium">목표 출하일</p>
+                        <p>{{ harvest_date.strftime('%Y.%m.%d') if harvest_date else '-' }}</p>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="w-full mt-2 h-4 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-green-500 rounded-full transition-all duration-500" style="width: {{ progress }}%"></div>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between text-xs font-bold text-slate-400">
+                        <span>진행률 {{ progress }}%</span>
+                        <span>
+                            {% if elapsed_days is not none %}
+                                경과 {{ elapsed_days }}일
+                            {% else %}
+                                -
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="mt-10 p-6 bg-slate-50 rounded-2xl">
+                    <p class="text-sm font-bold text-slate-700 leading-6">
+                        {% if remaining_days is not none and remaining_days > 0 %}
+                            목표 출하일까지 {{ remaining_days }}일 남았습니다.
+                        {% elif remaining_days == 0 %}
+                            오늘이 AI가 추천하는 권장 출하일입니다.
+                        {% elif remaining_days is not none and remaining_days < 0 %}
+                            권장 출하일에서 {{ remaining_days|abs }}일이 경과되었습니다.
+                        {% else %}
+                            데이터 분석을 통한 수확 추천 일정을 산출 중입니다.
+                        {% endif %}
+                    </p>
+                    <p class="text-xs text-slate-400 mt-2">
+                        정식 후 약 {{ total_days if total_days is not none else '-' }}일 되는 시점이 수확 골든타임으로 예측됩니다.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- 3. 최근 생육상태 -->
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div class="mb-6">
+                <h3 class="text-lg font-bold text-slate-800">작물 성장 기록</h3>
+            </div>
+
+            <div class="grid grid-cols-2 gap-x-8 gap-y-10">
+                {% for plant_no in [1, 2, 3, 4] %}
+                    {% set ns = namespace(growth=None) %}
+                    {% for item in latest_growth_list %}
+                        {% set item_plant_no = item.plant_num if item.plant_num is not none else 1 %}
+                        {% if item_plant_no|int == plant_no %}
+                            {% set ns.growth = item %}
+                        {% endif %}
+                    {% endfor %}
+                    {% set growth = ns.growth %}
+
+                    <div class="flex items-start space-x-5">
+                        <div class="flex-shrink-0">
+                            <div class="w-20 h-20 rounded-3xl bg-green-100 flex items-center justify-center overflow-hidden border border-green-100">
+                                {% if growth %}
+                                    {% if growth.plant_height is not none %}
+                                        {% if growth.plant_height < 50 %}
+                                            <div class="text-4xl">🌱</div>
+                                        {% elif growth.plant_height < 120 %}
+                                            <div class="text-4xl">🌿</div>
+                                        {% else %}
+                                            <div class="text-4xl">🍅</div>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="text-4xl">🌱</div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="text-slate-300 text-[10px] text-center p-1">No Image</div>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2 text-center text-slate-400 text-xs">
+                                <p class="font-medium">개체번호 {{ plant_no }}</p>
+                                <p class="text-[10px] opacity-70 mt-0.5">
+                                    {% if growth and growth.inspect_date %}{{ growth.inspect_date.strftime('%Y-%m-%d') }}{% endif %}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col justify-center space-y-4 pt-1">
+                            <div>
+                                <p class="text-slate-400 text-[10px] mb-0.5">초장</p>
+                                <p class="text-lg font-bold text-slate-800">
+                                    {% if growth and growth.plant_height is not none %}
+                                        {{ "%.1f"|format(growth.plant_height) }} <span class="font-semibold text-md">cm</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </p>
+                            </div>
+
+                            <div>
+                                <p class="text-slate-400 text-[10px] mb-0.5">엽폭</p>
+                                <p class="text-lg font-bold text-slate-800">
+                                    {% if growth and growth.leaf_width is not none %}
+                                        {{ growth.leaf_width }} <span class="font-semibold text-md">cm</span>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 4. 오늘의 환경상태 -->
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+    <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-bold text-slate-800">오늘의 농장 환경</h3>
+            <span class="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-600">
+                {{ env_measure_date.strftime('%Y-%m-%d') if env_measure_date else '최신' }}
+            </span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+        <div class="p-4 bg-slate-50 rounded-2xl">
+            <p class="text-xs text-slate-400 font-bold">일 평균 내부온도</p>
+            <p class="text-2xl font-extrabold text-slate-800 mt-1">
+                {% if env_in_temp is not none %}
+                    {{ "%.1f"|format(env_in_temp|float) }}<span class="text-base font-bold text-slate-500 ml-1">°C</span>
+                {% else %}
+                    -
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="p-4 bg-slate-50 rounded-2xl">
+            <p class="text-xs text-slate-400 font-bold">일 평균 내부습도</p>
+            <p class="text-2xl font-extrabold text-slate-800 mt-1">
+                {% if env_humidity is not none %}
+                    {{ "%.1f"|format(env_humidity|float) }}<span class="text-base font-bold text-slate-500 ml-1">%</span>
+                {% else %}
+                    -
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="p-4 bg-slate-50 rounded-2xl">
+            <p class="text-xs text-slate-400 font-bold">일 평균 CO2</p>
+            <p class="text-2xl font-extrabold text-slate-800 mt-1">
+                {% if env_co2 is not none %}
+                    {{ "%.0f"|format(env_co2|float) }}<span class="text-base font-bold text-slate-500 ml-1">ppm</span>
+                {% else %}
+                    -
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="p-4 bg-slate-50 rounded-2xl">
+            <p class="text-xs text-slate-400 font-bold">일 누적 일사량</p>
+            <p class="text-2xl font-extrabold text-slate-800 mt-1">
+                {% if env_solar is not none %}
+                    {{ "%.1f"|format(env_solar|float) }}
+                {% else %}
+                    -
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+<div class="mt-4 p-4 rounded-2xl border {% if priority_log and priority_log.level == 'danger' %} bg-red-50 border-red-100
+    {% elif priority_log and priority_log.level == 'warning' %} bg-amber-50 border-amber-100
+    {% elif priority_log and priority_log.level == 'success' %} bg-emerald-50 border-emerald-100
+    {% else %} bg-slate-50 border-slate-100 {% endif %}">
+
+    {% if priority_log %}
+        <div class="flex items-start gap-3">
+            <div class="mt-0.5">
+                {% if priority_log.level == 'danger' %}
+                    <div class="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+                {% elif priority_log.level == 'warning' %}
+                    <div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+                {% elif priority_log.level == 'success' %}
+                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+                {% else %}
+                    <div class="w-2.5 h-2.5 rounded-full bg-slate-400"></div>
+                {% endif %}
+            </div>
+
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-bold
+                    {% if priority_log.level == 'danger' %}
+                        text-red-700
+                    {% elif priority_log.level == 'warning' %}
+                        text-amber-700
+                    {% elif priority_log.level == 'success' %}
+                        text-emerald-700
+                    {% else %}
+                        text-slate-700
+                    {% endif %}
+                ">
+                    {{ priority_log.title|default('최신 알림', true) }}
+                </p>
+
+                <p class="mt-1 text-sm
+                    {% if priority_log.level == 'danger' %}
+                        text-red-600
+                    {% elif priority_log.level == 'warning' %}
+                        text-amber-600
+                    {% elif priority_log.level == 'success' %}
+                        text-emerald-600
+                    {% else %}
+                        text-slate-600
+                    {% endif %}
+                ">
+                    {{ priority_log.message|default('표시할 알림이 없습니다.', true) }}
+                </p>
+
+                {% if priority_log.time_text %}
+                <p class="mt-1 text-xs text-slate-400">
+                    {{ priority_log.time_text }}
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    {% else %}
+        <p class="text-sm text-slate-500">
+            아직 환경 알림이 없습니다.
+        </p>
+    {% endif %}
+</div>
+
+
+</div>
+
+    </div>
+
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- 5. 재배정보 -->
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800 mb-6">재배정보</h3>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div class="p-4 bg-slate-50 rounded-2xl">
+                    <p class="text-xs text-slate-400 font-bold">품목</p>
+                    <p class="text-ml font-bold text-slate-800 mt-1">{{ item }}</p>
+                </div>
+
+                <div class="p-4 bg-slate-50 rounded-2xl">
+                    <p class="text-xs text-slate-400 font-bold">품종</p>
+                    <p class="text-ml font-bold text-slate-800 mt-1">{{ item_variety }}</p>
+                </div>
+
+                <div class="p-4 bg-slate-50 rounded-2xl">
+                    <p class="text-xs text-slate-400 font-bold">식부 면적</p>
+                    <p class="text-ml font-bold text-slate-800 mt-1">
+                        {{ "{:,.1f}".format(planting_area) }}평
+                    </p>
+                </div>
+
+                <div class="p-4 bg-slate-50 rounded-2xl">
+                    <p class="text-xs text-slate-400 font-bold">재식 밀도</p>
+                    <p class="text-ml font-bold text-slate-800 mt-1">
+                        {{ "{:,.1f}".format(density) }}주/㎡
+                    </p>
+                </div>
+
+                <div class="p-4 bg-slate-50 rounded-2xl">
+                    <p class="text-xs text-slate-400 font-bold">시설 유형</p>
+                    <p class="text-ml font-bold text-slate-800 mt-1">{{ house_type }}</p>
+                </div>
+
+                <div class="p-4 bg-slate-50 rounded-2xl">
+                    <p class="text-xs text-slate-400 font-bold">시설 형태</p>
+                    <p class="text-ml font-bold text-slate-800 mt-1">{{ house_form }}</p>
+                </div>
+            </div>
+        </div>
+        <!-- 6. AI 모델정보 -->
+        <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <h3 class="text-lg font-bold text-slate-800 mb-5">데이터 분석 신뢰도</h3>
+
+            <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-5 items-start">
+                <div class="min-w-0">
+                    <div class="relative h-[200px] md:h-[240px]">
+                        <canvas id="confidenceGauge" data-score="{{ 47 if is_fallback else 78 }}"></canvas>
+
+                        <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                            <p class="text-sm font-semibold text-slate-400">생산량 예측 적합도</p>
+
+                            <div class="flex items-end gap-1 mt-2">
+                                <span class="text-2xl md:text-5xl font-black {% if is_fallback %}text-amber-500{% else %}text-green-500{% endif %}">
+                                    {{ 47 if is_fallback else 78 }}
+                                </span>
+                                <span class="text-lg md:text-2xl font-extrabold text-slate-500 mb-1">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="min-w-0 flex flex-col justify-end xl:h-[240px]">
+                    <div class="grid grid-cols-2 xl:grid-cols-1 gap-3">
+                        <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                            <span class="text-sm font-medium text-slate-600">재배 데이터</span>
+                            <span class="text-sm font-extrabold text-slate-800">설정완료</span>
+                        </div>
+
+                        <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                            <span class="text-sm font-medium text-slate-600">생육 데이터</span>
+                            <span class="text-sm font-extrabold text-slate-800">
+                                {% if not latest_growth_list %}표준분석{% else %}정밀분석{% endif %}
+                            </span>
+                        </div>
+
+                        <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                            <span class="text-sm font-medium text-slate-600">환경 데이터</span>
+                            <span class="text-sm font-extrabold {% if is_fallback %}text-amber-500{% else %}text-slate-800{% endif %}">
+                                {% if is_fallback %}표본부족{% else %}연동완료{% endif %}
+                            </span>
+                        </div>
+
+                        <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                            <span class="text-sm font-medium text-slate-600">시장 가격 데이터</span>
+                            <span class="text-sm font-extrabold text-slate-800">시세반영</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block script %}
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const harvestPriceCtx = document.getElementById('harvestPriceChart');
+
+    if (harvestPriceCtx && window.Chart) {
+        const label95 = "{{ prediction.price_date_95.strftime('%m/%d') if prediction and prediction.price_date_95 else '95일' }}";
+        const label105 = "{{ prediction.price_date_105.strftime('%m/%d') if prediction and prediction.price_date_105 else '105일' }}";
+        const label115 = "{{ prediction.price_date_115.strftime('%m/%d') if prediction and prediction.price_date_115 else '115일' }}";
+
+        const value95 = Number("{{ prediction.price_day_95 if prediction and prediction.price_day_95 is not none else 0 }}");
+        const value105 = Number("{{ prediction.price_day_105 if prediction and prediction.price_day_105 is not none else 0 }}");
+        const value115 = Number("{{ prediction.price_day_115 if prediction and prediction.price_day_115 is not none else 0 }}");
+        const currentMarketPrice = Number("{{ prediction.latest_market_price if prediction and prediction.latest_market_price is not none else 0 }}");
+
+        const values = [value95, value105, value115];
+        const maxValue = Math.max(...values);
+
+        const barColors = values.map(value =>
+            value === maxValue ? '#22c55e' : '#bbf7d0'
+        );
+
+        const marketPriceLabelPlugin = {
+            id: 'marketPriceLabelPlugin',
+            afterDatasetsDraw(chart) {
+                const { ctx, chartArea, scales } = chart;
+                const y = scales.y.getPixelForValue(currentMarketPrice);
+
+                ctx.save();
+
+                ctx.beginPath();
+                ctx.setLineDash([5, 6]);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
+                ctx.moveTo(chartArea.left, y);
+                ctx.lineTo(chartArea.right + 18, y);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '400 12px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(
+                    currentMarketPrice.toLocaleString(),
+                    chartArea.right + 12,
+                    y
+                );
+
+                ctx.restore();
+            }
+        };
+
+        new Chart(harvestPriceCtx, {
+            type: 'bar',
+            data: {
+                labels: [label95, label105, label115],
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: '예상 출하단가',
+                        data: values,
+                        backgroundColor: barColors,
+                        borderRadius: 12,
+                        borderSkipped: false,
+                        maxBarThickness: 56,
+                        order: 2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        right: 50
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const value = Math.round(Number(context.raw || 0));
+                                return '예상 출하단가: ' + value.toLocaleString() + '원/kg';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            color: '#64748b',
+                            font: {
+                                size: 12,
+                                weight: 'bold'
+                            }
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            color: '#94a3b8',
+                            callback: function(value) {
+                                return Number(value).toLocaleString() + '원';
+                            }
+                        },
+                        grid: {
+                            color: '#f1f5f9'
+                        }
+                    }
+                }
+            },
+            plugins: [marketPriceLabelPlugin]
+        });
+    }
+
+    const gaugeCanvas = document.getElementById('confidenceGauge');
+
+    if (gaugeCanvas && window.Chart) {
+        const gaugeScore = Number(gaugeCanvas.dataset.score || 78);
+        const isFallback = gaugeScore < 70;
+
+        new Chart(gaugeCanvas, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [gaugeScore, 100 - gaugeScore],
+                    backgroundColor: [
+                        isFallback ? '#f59e0b' : '#22c55e',
+                        '#e5e7eb'
+                    ],
+                    borderWidth: 0,
+                    borderRadius: 999,
+                    spacing: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '78%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false }
+                }
+            }
+        });
+    }
+
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+});
+</script>
+
+{% endblock %}
