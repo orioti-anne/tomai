@@ -107,7 +107,7 @@ class ProdSummary(db.Model):
 
 class Environment(db.Model):
     __tablename__ = 'environment'
-    env_id = db.Column(db.Integer, db.Sequence('seq_env_id'), primary_key=True)
+    env_id = db.Column(db.Integer, db.Sequence('environment_env_id_seq'), primary_key=True)
     cult_id = db.Column(db.Integer, db.ForeignKey('cultivations.cult_id'), nullable=False)
     measure_time = db.Column(db.DateTime, nullable=False)
     out_temp = db.Column(db.Float)
