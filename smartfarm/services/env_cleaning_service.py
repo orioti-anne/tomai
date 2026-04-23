@@ -150,10 +150,10 @@ def rebuild_env_cleaned(cult_id: int, start_date: str, end_date: str) -> int:
 
     raw_query = text("""
         SELECT *
-        FROM ENVIRONMENT
+        FROM environment
         WHERE CULT_ID = :cult_id
-          AND MEASURE_TIME >= TO_DATE(:start_date, 'YYYY-MM-DD')
-          AND MEASURE_TIME < TO_DATE(:end_date, 'YYYY-MM-DD') + 1
+          AND measure_time >= :start_date::date
+          AND measure_time < :end_date::date + INTERVAL '1 day'
         ORDER BY CULT_ID, MEASURE_TIME
     """)
 
@@ -172,10 +172,10 @@ def rebuild_env_cleaned(cult_id: int, start_date: str, end_date: str) -> int:
     with db.engine.begin() as conn:
         print("cleaned 3. 기존 cleaned 삭제 시작")
         conn.execute(text("""
-            DELETE FROM ENV_CLEANED
+            DELETE FROM env_cleaned
             WHERE CULT_ID = :cult_id
-              AND MEASURE_DATE BETWEEN TO_DATE(:start_date, 'YYYY-MM-DD')
-                                   AND TO_DATE(:end_date, 'YYYY-MM-DD')
+              AND measure_date BETWEEN :start_date::date
+                                   AND :end_date::date
         """), {
             "cult_id": cult_id,
             "start_date": start_date,
@@ -199,20 +199,20 @@ def rebuild_env_cleaned(cult_id: int, start_date: str, end_date: str) -> int:
     ]
 
     insert_sql = text("""
-        INSERT INTO ENV_CLEANED (
-            ENVCL_ID, ENV_ID, CULT_ID, MEASURE_TIME,
-            OUT_TEMP, OUT_WIND_DIRECTION, OUT_WIND_SPEED,
-            OUT_SOLAR_RAD, OUT_ACC_SOLAR_RAD, RAIN_DETECTION,
-            IN_TEMP, IN_HUMIDITY, IN_CO2, SOIL_TEMP,
-            OUT_ACC_SOLAR_RAD_STATUS, IN_TEMP_STATUS, IN_HUMIDITY_STATUS, IN_CO2_STATUS,
-            MEASURE_DATE, MEASURE_HOUR, CREATED_AT
+        INSERT INTO env_cleaned (
+            env_id, cult_id, measure_time,
+            out_temp, out_wind_direction, out_wind_speed,
+            out_solar_rad, out_acc_solar_rad, rain_detection,
+            in_temp, in_humidity, in_co2, soil_temp,
+            out_acc_solar_rad_status, in_temp_status, in_humidity_status, in_co2_status,
+            measure_date, measure_hour, created_at
         ) VALUES (
-            SEQ_ENVCL_ID.NEXTVAL, :env_id, :cult_id, :measure_time,
+            :env_id, :cult_id, :measure_time,
             :out_temp, :out_wind_direction, :out_wind_speed,
             :out_solar_rad, :out_acc_solar_rad, :rain_detection,
             :in_temp, :in_humidity, :in_co2, :soil_temp,
             :out_acc_solar_rad_status, :in_temp_status, :in_humidity_status, :in_co2_status,
-            :measure_date, :measure_hour, SYSDATE
+            :measure_date, :measure_hour, NOW()
         )
     """)
 

@@ -17,3 +17,6 @@ Thumbs.db
 /migrations/
 /models/
 /scripts/
+*.tar
+.env.macmini
+tomAI_datasets/

@@ -170,7 +170,7 @@ def replace_environment_raw(df: pd.DataFrame) -> int:
 
     delete_sql = text(
         """
-        DELETE FROM ENVIRONMENT
+        DELETE FROM environment
         WHERE CULT_ID = :cult_id
           AND MEASURE_TIME >= :start_dt
           AND MEASURE_TIME < :end_dt
@@ -179,18 +179,18 @@ def replace_environment_raw(df: pd.DataFrame) -> int:
 
     insert_sql = text(
         """
-        INSERT INTO ENVIRONMENT (
-            ENV_ID, CULT_ID, MEASURE_TIME,
-            OUT_TEMP, OUT_WIND_DIRECTION, OUT_WIND_SPEED,
-            OUT_SOLAR_RAD, OUT_ACC_SOLAR_RAD, RAIN_DETECTION,
-            IN_TEMP, IN_HUMIDITY, IN_CO2, SOIL_TEMP,
-            CREATED_AT
+        INSERT INTO environment (
+            cult_id, measure_time,
+            out_temp, out_wind_direction, out_wind_speed,
+            out_solar_rad, out_acc_solar_rad, rain_detection,
+            in_temp, in_humidity, in_co2, soil_temp,
+            created_at
         ) VALUES (
-            SEQ_ENV_ID.NEXTVAL, :cult_id, :measure_time,
+            :cult_id, :measure_time,
             :out_temp, :out_wind_direction, :out_wind_speed,
             :out_solar_rad, :out_acc_solar_rad, :rain_detection,
             :in_temp, :in_humidity, :in_co2, :soil_temp,
-            SYSDATE
+            NOW()
         )
         """
     )

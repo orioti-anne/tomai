@@ -4,140 +4,97 @@ from smartfarm import db
 
 def rebuild_env_summary(cult_id: int, start_date: str, end_date: str) -> int:
     """
-    ENV_CLEANED -> ENV_SUMMARY 재생성
+    env_cleaned -> env_summary 재생성
     지정 cult_id / 날짜 범위만 삭제 후 재적재
     """
 
     with db.engine.begin() as conn:
         # 1. 기존 summary 삭제
         conn.execute(text("""
-            DELETE FROM ENV_SUMMARY
-            WHERE CULT_ID = :cult_id
-              AND MEASURE_DATE BETWEEN TO_DATE(:start_date, 'YYYY-MM-DD')
-                                   AND TO_DATE(:end_date, 'YYYY-MM-DD')
-        """), {
-            "cult_id": cult_id,
-            "start_date": start_date,
-            "end_date": end_date,
-        })
+            DELETE FROM env_summary
+            WHERE cult_id = :cult_id
+              AND measure_date BETWEEN :start_date::date AND :end_date::date
+        """), {"cult_id": cult_id, "start_date": start_date, "end_date": end_date})
 
         # 2. summary insert
         conn.execute(text("""
-            INSERT INTO ENV_SUMMARY (
-                ENVSU_ID, CULT_ID, MEASURE_DATE,
-                DAILY_OUT_TEMP, DAILY_ACC_SOLAR, DAILY_RAIN_DETECTION,
-                DAILY_IN_TEMP, DAILY_IN_HUMIDITY, DAILY_IN_CO2, DAILY_SOIL_TEMP,
-                ACC_TEMP, ACC_SOLAR
+            INSERT INTO env_summary (
+                cult_id, measure_date,
+                daily_out_temp, daily_acc_solar, daily_rain_detection,
+                daily_in_temp, daily_in_humidity, daily_in_co2, daily_soil_temp,
+                acc_temp, acc_solar
             )
             SELECT
-                SEQ_ENVSU_ID.NEXTVAL,
-                CULT_ID, M_DATE,
-                AVG_OUT_TEMP, TARGET_ACC_SOLAR, MAX_RAIN,
-                AVG_IN_TEMP, AVG_IN_HUMIDITY, AVG_IN_CO2, AVG_SOIL_TEMP,
-                RUNNING_ACC_TEMP, RUNNING_ACC_SOLAR
+                cult_id, m_date,
+                avg_out_temp, target_acc_solar, max_rain,
+                avg_in_temp, avg_in_humidity, avg_in_co2, avg_soil_temp,
+                running_acc_temp, running_acc_solar
             FROM (
-                WITH DAILY_BASE AS (
+                WITH daily_base AS (
                     SELECT
-                        E.CULT_ID,
-                        TRUNC(E.MEASURE_DATE) AS M_DATE,
-                        TRUNC(C.PLANTING_DATE) AS P_DATE,
-                        AVG(E.OUT_TEMP) AS AVG_OUT_TEMP,
+                        e.cult_id,
+                        e.measure_date::date AS m_date,
+                        c.planting_date::date AS p_date,
+                        AVG(e.out_temp) AS avg_out_temp,
                         MAX(CASE
-                            WHEN E.MEASURE_HOUR BETWEEN 14 AND 23
-                            THEN E.OUT_ACC_SOLAR_RAD
+                            WHEN e.measure_hour BETWEEN 14 AND 23
+                            THEN e.out_acc_solar_rad
                             ELSE 0
-                        END) AS TARGET_ACC_SOLAR,
-                        MAX(E.RAIN_DETECTION) AS MAX_RAIN,
-                        AVG(E.IN_TEMP) AS AVG_IN_TEMP,
-                        AVG(E.IN_HUMIDITY) AS AVG_IN_HUMIDITY,
-                        AVG(E.IN_CO2) AS AVG_IN_CO2,
-                        AVG(E.SOIL_TEMP) AS AVG_SOIL_TEMP
-                    FROM ENV_CLEANED E
-                    LEFT JOIN CULTIVATIONS C
-                        ON E.CULT_ID = C.CULT_ID
-                    WHERE E.CULT_ID = :cult_id
-                      AND E.MEASURE_DATE BETWEEN TO_DATE(:start_date, 'YYYY-MM-DD')
-                                             AND TO_DATE(:end_date, 'YYYY-MM-DD')
-                    GROUP BY
-                        E.CULT_ID,
-                        TRUNC(E.MEASURE_DATE),
-                        TRUNC(C.PLANTING_DATE)
+                        END) AS target_acc_solar,
+                        MAX(e.rain_detection) AS max_rain,
+                        AVG(e.in_temp) AS avg_in_temp,
+                        AVG(e.in_humidity) AS avg_in_humidity,
+                        AVG(e.in_co2) AS avg_in_co2,
+                        AVG(e.soil_temp) AS avg_soil_temp
+                    FROM env_cleaned e
+                    LEFT JOIN cultivations c ON e.cult_id = c.cult_id
+                    WHERE e.cult_id = :cult_id
+                      AND e.measure_date BETWEEN :start_date::date AND :end_date::date
+                    GROUP BY e.cult_id, e.measure_date::date, c.planting_date::date
                 ),
-                ACCUMULATED_CALC AS (
+                accumulated_calc AS (
                     SELECT
-                        DB.*,
+                        db.*,
                         CASE
-                            WHEN DB.M_DATE >= DB.P_DATE THEN
-                                SUM(CASE
-                                    WHEN DB.M_DATE >= DB.P_DATE THEN DB.AVG_IN_TEMP
-                                    ELSE 0
-                                END) OVER (
-                                    PARTITION BY DB.CULT_ID
-                                    ORDER BY DB.M_DATE
-                                )
+                            WHEN db.m_date >= db.p_date THEN
+                                SUM(CASE WHEN db.m_date >= db.p_date THEN db.avg_in_temp ELSE 0 END)
+                                OVER (PARTITION BY db.cult_id ORDER BY db.m_date)
                             ELSE NULL
-                        END AS RUNNING_ACC_TEMP,
+                        END AS running_acc_temp,
                         CASE
-                            WHEN DB.M_DATE >= DB.P_DATE THEN
-                                SUM(CASE
-                                    WHEN DB.M_DATE >= DB.P_DATE THEN DB.TARGET_ACC_SOLAR
-                                    ELSE 0
-                                END) OVER (
-                                    PARTITION BY DB.CULT_ID
-                                    ORDER BY DB.M_DATE
-                                )
+                            WHEN db.m_date >= db.p_date THEN
+                                SUM(CASE WHEN db.m_date >= db.p_date THEN db.target_acc_solar ELSE 0 END)
+                                OVER (PARTITION BY db.cult_id ORDER BY db.m_date)
                             ELSE NULL
-                        END AS RUNNING_ACC_SOLAR
-                    FROM DAILY_BASE DB
+                        END AS running_acc_solar
+                    FROM daily_base db
                 )
-                SELECT * FROM ACCUMULATED_CALC
-            )
-        """), {
-            "cult_id": cult_id,
-            "start_date": start_date,
-            "end_date": end_date,
-        })
+                SELECT * FROM accumulated_calc
+            ) sub
+        """), {"cult_id": cult_id, "start_date": start_date, "end_date": end_date})
 
         # 3. 0값 후처리
         conn.execute(text("""
-            UPDATE ENV_SUMMARY
-            SET DAILY_ACC_SOLAR = NULL
-            WHERE CULT_ID = :cult_id
-              AND MEASURE_DATE BETWEEN TO_DATE(:start_date, 'YYYY-MM-DD')
-                                   AND TO_DATE(:end_date, 'YYYY-MM-DD')
-              AND DAILY_ACC_SOLAR = 0
-        """), {
-            "cult_id": cult_id,
-            "start_date": start_date,
-            "end_date": end_date,
-        })
+            UPDATE env_summary
+            SET daily_acc_solar = NULL
+            WHERE cult_id = :cult_id
+              AND measure_date BETWEEN :start_date::date AND :end_date::date
+              AND daily_acc_solar = 0
+        """), {"cult_id": cult_id, "start_date": start_date, "end_date": end_date})
 
         conn.execute(text("""
-            UPDATE ENV_SUMMARY
-            SET ACC_SOLAR = NULL
-            WHERE CULT_ID = :cult_id
-              AND MEASURE_DATE BETWEEN TO_DATE(:start_date, 'YYYY-MM-DD')
-                                   AND TO_DATE(:end_date, 'YYYY-MM-DD')
-              AND ACC_SOLAR = 0
-        """), {
-            "cult_id": cult_id,
-            "start_date": start_date,
-            "end_date": end_date,
-        })
-
-    count_sql = text("""
-        SELECT COUNT(*)
-        FROM ENV_SUMMARY
-        WHERE CULT_ID = :cult_id
-          AND MEASURE_DATE BETWEEN TO_DATE(:start_date, 'YYYY-MM-DD')
-                               AND TO_DATE(:end_date, 'YYYY-MM-DD')
-    """)
+            UPDATE env_summary
+            SET acc_solar = NULL
+            WHERE cult_id = :cult_id
+              AND measure_date BETWEEN :start_date::date AND :end_date::date
+              AND acc_solar = 0
+        """), {"cult_id": cult_id, "start_date": start_date, "end_date": end_date})
 
     with db.engine.begin() as conn:
-        result = conn.execute(count_sql, {
-            "cult_id": cult_id,
-            "start_date": start_date,
-            "end_date": end_date,
-        }).scalar()
+        result = conn.execute(text("""
+            SELECT COUNT(*) FROM env_summary
+            WHERE cult_id = :cult_id
+              AND measure_date BETWEEN :start_date::date AND :end_date::date
+        """), {"cult_id": cult_id, "start_date": start_date, "end_date": end_date}).scalar()
 
     return int(result or 0)

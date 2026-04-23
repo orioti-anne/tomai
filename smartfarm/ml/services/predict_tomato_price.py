@@ -21,21 +21,21 @@ def predict_future():
     app = create_app(enable_scheduler=False)
 
     with app.app_context():
-        # [SQL 수정] 오라클 호환성을 위한 ROWNUM 방식
+        # PostgreSQL LIMIT 방식
         query = text("""
-            SELECT *FROM (
-                SELECT P.PRICE_DATE, P.PRICE_PER_KG, W.AVG_TEMP, W.SUNSHINE, W.RAIN
-                FROM KAMIS_TOMATO_PRICE P
-                LEFT JOIN WEATHER_INDEX W ON P.PRICE_DATE = W.W_DATE
-                WHERE P.ITEM_NAME = '완숙토마토'
-                ORDER BY P.PRICE_DATE DESC)WHERE ROWNUM <= 40
+            SELECT p.price_date, p.price_per_kg, w.avg_temp, w.sunshine, w.rain
+            FROM kamis_tomato_price p
+            LEFT JOIN weather_index w ON p.price_date = w.w_date
+            WHERE p.item_name = '완숙토마토'
+            ORDER BY p.price_date DESC
+            LIMIT 40
         """)
 
         try:
             # 데이터 로드 및 정렬
             df = pd.read_sql(query, db.engine)
-            df.columns = [c.upper() for c in df.columns]
-            df = df.sort_values("PRICE_DATE")
+            df.columns = [c.lower() for c in df.columns]
+            df = df.sort_values("price_date")
 
             if len(df) < 30:
                 print(f"⚠️ 데이터 부족: 현재 {len(df)}건의 데이터만 확보되었습니다. 최소 30일치가 필요합니다.")
@@ -54,14 +54,14 @@ def predict_future():
 
             # 피처 생성 (V3 학습 로직과 동일)
             latest = df.iloc[-1].copy()
-            prev_1d = df["PRICE_PER_KG"].iloc[-1]
-            ma_7d = df["PRICE_PER_KG"].tail(7).mean()
-            ma_30d = df["PRICE_PER_KG"].tail(30).mean()
-            price_vol_7d = df["PRICE_PER_KG"].tail(7).std()
+            prev_1d = df["price_per_kg"].iloc[-1]
+            ma_7d = df["price_per_kg"].tail(7).mean()
+            ma_30d = df["price_per_kg"].tail(30).mean()
+            price_vol_7d = df["price_per_kg"].tail(7).std()
 
-            rain_sum_7d = df["RAIN"].tail(7).sum()
-            sun_avg_10d = df["SUNSHINE"].tail(10).mean()
-            temp_lag14 = df["AVG_TEMP"].iloc[-15] if len(df) >= 15 else df["AVG_TEMP"].mean()
+            rain_sum_7d = df["rain"].tail(7).sum()
+            sun_avg_10d = df["sunshine"].tail(10).mean()
+            temp_lag14 = df["avg_temp"].iloc[-15] if len(df) >= 15 else df["avg_temp"].mean()
 
             today = datetime.now()
             target_date = today + timedelta(days=7)
@@ -72,7 +72,7 @@ def predict_future():
                 "MA_7D": ma_7d,
                 "MA_30D": ma_30d,
                 "PRICE_VOL_7D": price_vol_7d,
-                "AVG_TEMP": latest["AVG_TEMP"],
+                "avg_temp": latest["avg_temp"],
                 "TEMP_LAG14": temp_lag14,
                 "RAIN_SUM_7D": rain_sum_7d,
                 "SUN_AVG_10D": sun_avg_10d,

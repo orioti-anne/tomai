@@ -85,7 +85,7 @@ def _get_recent_env_summary(cult_id: int, days: int = 7):
             SUM(CASE WHEN in_temp >= 30 THEN 1 ELSE 0 END) AS high_temp_hours
         FROM env_cleaned
         WHERE cult_id = :cult_id
-          AND measure_date >= TRUNC(SYSDATE) - :days
+          AND measure_date >= CURRENT_DATE - INTERVAL '1 day' * :days
     """)
     row = db.session.execute(query, {"cult_id": cult_id, "days": days}).fetchone()
     return _row_to_dict(row) or {}

@@ -278,26 +278,13 @@ def run_weather_collect_job(app):
 
         try:
             merge_sql = text("""
-                MERGE INTO WEATHER_INDEX T
-                USING (
-                    SELECT
-                        TO_DATE(:w_date, 'YYYY-MM-DD') AS W_DATE,
-                        :avg_temp AS AVG_TEMP,
-                        :sunshine AS SUNSHINE,
-                        :rain AS RAIN,
-                        :humid AS HUMID
-                    FROM DUAL
-                ) S
-                ON (T.W_DATE = S.W_DATE)
-                WHEN MATCHED THEN
-                    UPDATE SET
-                        T.AVG_TEMP = S.AVG_TEMP,
-                        T.SUNSHINE = S.SUNSHINE,
-                        T.RAIN = S.RAIN,
-                        T.HUMID = S.HUMID
-                WHEN NOT MATCHED THEN
-                    INSERT (W_DATE, AVG_TEMP, SUNSHINE, RAIN, HUMID)
-                    VALUES (S.W_DATE, S.AVG_TEMP, S.SUNSHINE, S.RAIN, S.HUMID)
+                INSERT INTO weather_index (w_date, avg_temp, sunshine, rain, humid)
+                VALUES (:w_date::date, :avg_temp, :sunshine, :rain, :humid)
+                ON CONFLICT (w_date) DO UPDATE SET
+                    avg_temp = EXCLUDED.avg_temp,
+                    sunshine = EXCLUDED.sunshine,
+                    rain = EXCLUDED.rain,
+                    humid = EXCLUDED.humid
             """)
 
             db.session.execute(

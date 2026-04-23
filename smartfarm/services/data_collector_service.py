@@ -81,40 +81,20 @@ class PriceCollector:
                             price_per_kg = raw_price / 5
                             print(f"⚠{target_str}: 특이 단위 발견({unit_str}), 5kg 기준으로 계산함")
 
-                        # DB 저장 (MERGE INTO 문을 사용하여 중복 방지 및 업데이트)
+                        # DB 저장 (PostgreSQL UPSERT)
                         query = text("""
-                            MERGE INTO KAMIS_TOMATO_PRICE t
-                            USING (
-                                SELECT 
-                                    TO_DATE(:p_date, 'YYYY-MM-DD') as PRICE_DATE,
-                                    '가락시장' as MARKET_NAME,
-                                    '완숙토마토' as ITEM_NAME,
-                                    :p_unit as TRADE_UNIT,
-                                    :p_grade as GRADE,
-                                    :p_raw_price as AVG_PRICE,
-                                    1.0 as UNIT_KG,
-                                    :p_price_kg as PRICE_PER_KG,
-                                    4 as GRADE_SCORE
-                                FROM dual
-                            ) s
-                            ON (t.PRICE_DATE = s.PRICE_DATE AND t.ITEM_NAME = s.ITEM_NAME AND t.GRADE = s.GRADE)
-                            WHEN MATCHED THEN
-                                UPDATE SET 
-                                    t.AVG_PRICE = s.AVG_PRICE,
-                                    t.PRICE_PER_KG = s.PRICE_PER_KG,
-                                    t.TRADE_UNIT = s.TRADE_UNIT,
-                                    t.CREATED_AT = SYSDATE
-                            WHEN NOT MATCHED THEN
-                                INSERT (
-                                    PRICE_ID, PRICE_DATE, MARKET_NAME, ITEM_NAME, 
-                                    TRADE_UNIT, GRADE, AVG_PRICE, UNIT_KG, PRICE_PER_KG, 
-                                    GRADE_SCORE, CREATED_AT
-                                )
-                                VALUES (
-                                    SEQ_KAMIS_PRICE.NEXTVAL, s.PRICE_DATE, s.MARKET_NAME, s.ITEM_NAME, 
-                                    s.TRADE_UNIT, s.GRADE, s.AVG_PRICE, s.UNIT_KG, s.PRICE_PER_KG, 
-                                    s.GRADE_SCORE, SYSDATE
-                                )
+                            INSERT INTO kamis_tomato_price 
+                                (price_date, market_name, item_name, trade_unit, grade, 
+                                 avg_price, unit_kg, price_per_kg, grade_score, created_at)
+                            VALUES 
+                                (:p_date::date, '가락시장', '완숙토마토', :p_unit, :p_grade,
+                                 :p_raw_price, 1.0, :p_price_kg, 4, NOW())
+                            ON CONFLICT (price_date, item_name, grade) 
+                            DO UPDATE SET
+                                avg_price = EXCLUDED.avg_price,
+                                price_per_kg = EXCLUDED.price_per_kg,
+                                trade_unit = EXCLUDED.trade_unit,
+                                created_at = NOW()
                         """)
 
                         db.session.execute(query, {
