@@ -124,14 +124,14 @@ def _season_from_month(month: int | None) -> Optional[str]:
 def _get_recent_market_data() -> pd.DataFrame:
     try:
         query = text("""
-                     SELECT P.PRICE_DATE,
-                            P.PRICE_PER_KG,
-                            W.AVG_TEMP
-                     FROM KAMIS_TOMATO_PRICE P
-                              LEFT JOIN WEATHER_INDEX W ON P.PRICE_DATE = W.W_DATE
-                     WHERE P.ITEM_NAME = '완숙토마토'
-                       AND P.PRICE_DATE >= TRUNC(SYSDATE) - 400
-                     ORDER BY P.PRICE_DATE ASC
+                     SELECT p.price_date,
+                            p.price_per_kg,
+                            w.avg_temp
+                     FROM kamis_tomato_price p
+                              LEFT JOIN weather_index w ON p.price_date = w.w_date
+                     WHERE p.item_name = '완숙토마토'
+                       AND p.price_date >= CURRENT_DATE - INTERVAL '400 days'
+                     ORDER BY p.price_date ASC
                      """)
 
         df = pd.read_sql(query, db.engine)
