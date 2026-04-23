@@ -382,20 +382,22 @@ def get_weather_alert_status(region_l1, region_l2):
         if not items:
             return None
 
-        content = items[0].get("t6", "")
         short_l1 = region_l1[:2]
 
-        if short_l1 in content or region_l2 in content:
-            alert_title = "기상 특보 발령"
-            if "o " in content:
-                try:
-                    alert_title = content.split("o ")[1].split(" :")[0]
-                except: pass
-
-            return {
-                "title": alert_title,
-                "message": f"현재 {region_l1} {region_l2} 지역에 기상 특보가 발효 중입니다. 시설 관리에 유의하세요."
-            }
+        for item in items:
+            t6 = item.get("t6", "")
+            lines = t6.split("\n")
+            for line in lines:
+                if (":" in line or "구역" in line) and (short_l1 in line or region_l2 in line):
+                    alert_title = "기상 특보 발령"
+                    try:
+                        alert_title = t6.split("o ")[1].split(" :")[0]
+                    except:
+                        pass
+                    return {
+                        "title": alert_title,
+                        "message": f"현재 {region_l1} {region_l2} 지역에 기상 특보가 발효 중입니다. 시설 관리에 유의하세요."
+                    }
         return None
     except Exception as e:
         print(f"특보 API 호출 오류: {e}")

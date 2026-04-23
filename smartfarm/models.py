@@ -265,3 +265,16 @@ class PredictionResults(db.Model):
 
     def __repr__(self):
         return f'<PredictionResults ID:{self.prediction_id} | 'f'CultID:{self.cult_id} | 'f'Harvest:{self.expected_harvest_date}>'
+
+
+class PredictionDisplay(db.Model):
+    __tablename__ = 'prediction_display'
+    id = db.Column(db.Integer, primary_key=True)
+    category = db.Column(db.String(50))   # 'price', 'weather', 'growth'
+    result_value = db.Column(db.Float)    # 예측 또는 수집된 수치
+    target_date = db.Column(db.String(20)) # 데이터 기준 날짜
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    raw_json = db.Column(db.Text)          # 전체 데이터 백업용
+
+    def __repr__(self):
+        return f'<PredictionDisplay {self.category}: {self.result_value}>'

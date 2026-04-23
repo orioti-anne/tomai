@@ -1,17 +1,56 @@
 from __future__ import annotations
-
 from pathlib import Path
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, Optional
-
 import joblib
 import numpy as np
 import pandas as pd
+import requests
+import os
+from dotenv import load_dotenv
 from sqlalchemy import text
-
 from smartfarm import db
 from smartfarm.ml.pipelines.tomato_pipeline import predict_tomato_cycle
 from smartfarm.ml.services.environment_recommendation_service import recommend_environment
+
+
+
+load_dotenv()
+
+GCP_IP = os.getenv("GCP_IP")
+if not GCP_IP:
+    raise ValueError("환경 변수 GCP_IP가 설정되지 않았습니다. .env 파일을 확인하세요.")
+
+GCP_ENDPOINT = f"http://{GCP_IP}:5000/api/receive-prediction"
+
+
+def send_to_gcp(category: str, value: float, target_date: str = None):
+    payload = {
+        "type": category,
+        "value": value,
+        "target_date": target_date or datetime.now().strftime('%Y-%m-%d')
+    }
+
+    try:
+        response = requests.post(GCP_ENDPOINT, json=payload, timeout=5)
+        if response.status_code == 200:
+            print(f"🚀 [GCP 전송 성공] {category}: {value}")
+        else:
+            print(f"⚠️ [GCP 전송 오류] 상태코드: {response.status_code}")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ [GCP 전송 실패] 네트워크 연결 확인 필요: {e}")
+    except Exception as e:
+        print(f"❌ [GCP 전송 실패] 알 수 없는 오류: {e}")
+
+
+def run_ml_prediction_with_push(cult_id: int):
+    result = predict_tomato_cycle(cult_id=cult_id)
+    # 계산된 결과를 GCP로 쏜다!
+    send_to_gcp("growth_rgr", result.get('expected_quantity'))
+    return result
+
+
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 MODEL_DIR = BASE_DIR / "ml" / "models"
@@ -30,8 +69,15 @@ def run_environment_recommendation(sensor_data: dict) -> dict:
 
 
 def run_ml_prediction(cult_id: int) -> Dict[str, Any]:
-    return predict_tomato_cycle(cult_id=cult_id)
+    result = predict_tomato_cycle(cult_id=cult_id)
 
+    if result and 'expected_quantity' in result:
+        qty = result['expected_quantity']
+        target_date = result.get('expected_harvest_date', datetime.now().strftime('%Y-%m-%d'))
+
+        send_to_gcp("growth_prediction", qty, target_date)
+
+    return result
 
 def _to_float(value: Any, default: Optional[float] = None) -> Optional[float]:
     if value in (None, ""):
@@ -40,7 +86,6 @@ def _to_float(value: Any, default: Optional[float] = None) -> Optional[float]:
         return float(value)
     except Exception:
         return default
-
 
 def _load_model(candidates: list[str]):
     for name in candidates:
@@ -615,7 +660,7 @@ def run_default_prediction(**kwargs) -> Dict[str, Any]:
     print(f"[FINAL RESULT] Fallback: {final_is_fallback}, Reason: {best_option['reason']}")
     return result
 
-def _build_yield_feature_row_at_day(cult_id, target_days, base_info):
+def _build_yield_feature_row_at_day(cult_id, target_days):
     X_y, err = _build_yield_feature_row(cult_id)
     if X_y is not None:
         X_y["snapshot_day"] = _nearest_snapshot_day(target_days)

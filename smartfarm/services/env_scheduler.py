@@ -5,12 +5,38 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
+from dotenv import load_dotenv
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import text
 
 from smartfarm import db
 from smartfarm.models import Cultivations
 from .data_collector_service import PriceCollector
+
+import requests
+
+load_dotenv()
+
+GCP_IP = os.getenv("GCP_IP")
+if not GCP_IP:
+    raise ValueError("환경 변수 GCP_IP가 설정되지 않았습니다. .env 파일을 확인하세요.")
+
+GCP_ENDPOINT = f"http://{GCP_IP}:5000/api/receive-prediction"
+
+def send_result_to_gcp(category: str, value: float, target_date: str):
+    payload = {"type": category, "value": value, "target_date": target_date}
+    try:
+        response = requests.post(GCP_ENDPOINT, json=payload, timeout=10)
+        if response.status_code == 200:
+            print(f"[GCP 전송 성공] {category}: {value}")
+        else:
+            print(f"[GCP 전송 응답 오류] 상태코드: {response.status_code}")
+
+    except requests.exceptions.RequestException as e:
+        print(f"[GCP 전송 실패] 네트워크 연결 확인 필요: {e}")
+    except Exception as e:
+        print(f"[GCP 전송 실패] {type(e).__name__}: {e}")
+
 
 scheduler = BackgroundScheduler(timezone="Asia/Seoul")
 
@@ -142,6 +168,11 @@ def run_price_collect_job(app):
             result = PriceCollector.collect_tomato_price()
             if result.get("success"):
                 print(f"[{datetime.now()}] 성공: {result.get('details')}")
+
+                price_val = result.get('price', 0)
+                target_date = datetime.now().strftime('%Y-%m-%d')
+                send_result_to_gcp("price", price_val, target_date)
+
             else:
                 print(f"[{datetime.now()}] 실패: {result.get('message')}")
         except Exception as e:
@@ -282,6 +313,8 @@ def run_weather_collect_job(app):
             db.session.commit()
 
             print(f"[WEATHER_SCHEDULER] WEATHER_INDEX 저장 완료: {weather_date_str}")
+
+            send_result_to_gcp("weather", avg_temp, weather_date_str)
 
         except Exception as e:
             db.session.rollback()
