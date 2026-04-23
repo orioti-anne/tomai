@@ -4,6 +4,7 @@ from smartfarm.ml.config import (
     ENV_GROWTH_MODEL_PATH,
     PRODUCTION_MODEL_PATH,
     PRICE_MODEL_PATH,
+    MODEL_DIR,
 )
 
 
