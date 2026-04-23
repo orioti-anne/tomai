@@ -54,13 +54,10 @@ def index():
             prediction.price_date_115 = selected_cult.planting_date + timedelta(days=115)
 
         price_sql = text("""
-            SELECT PRICE_DATE, PRICE_PER_KG
-            FROM (
-                SELECT PRICE_DATE, PRICE_PER_KG
-                FROM KAMIS_TOMATO_PRICE
-                ORDER BY PRICE_DATE DESC
-            )
-            WHERE ROWNUM = 1
+            SELECT price_date, price_per_kg
+            FROM kamis_tomato_price
+            ORDER BY price_date DESC
+            LIMIT 1
         """)
         latest_price_row = db.session.execute(price_sql).fetchone()
 
