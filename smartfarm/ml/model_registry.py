@@ -29,7 +29,9 @@ def load_env_growth_model():
 
 
 def load_production_model():
-    bundle = joblib.load(PRODUCTION_MODEL_PATH)
+    # prod_growth_model이 없으면 yield_prediction_model로 대체
+    path = PRODUCTION_MODEL_PATH if PRODUCTION_MODEL_PATH.exists() else MODEL_DIR / "yield_prediction_model.joblib"
+    bundle = joblib.load(path)
     return _normalize_bundle(bundle)
 
 
