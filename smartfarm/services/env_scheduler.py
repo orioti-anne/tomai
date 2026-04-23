@@ -368,5 +368,18 @@ def init_scheduler(app):
         args=[app],
     )
 
+    add_sync_job(scheduler, app)
     scheduler.start()
     print("[SCHEDULER] 통합 스케줄러가 시작되었습니다. (센서: 매시간, 시세/기상: 오전 1회)")
+
+def add_sync_job(scheduler, app):
+    from smartfarm.services.cloud_sync_service import run_full_sync
+    scheduler.add_job(
+        run_full_sync,
+        'interval',
+        hours=1,
+        args=[app],
+        id='cloud_sync',
+        replace_existing=True
+    )
+    print("[SCHEDULER] 클라우드 동기화 스케줄러 추가 완료")
