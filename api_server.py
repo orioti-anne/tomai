@@ -16,11 +16,13 @@ if platform.system() == "Darwin":
         print(f"[Oracle] {e}")
 
 from smartfarm import create_app, db
+from smartfarm.models import Cultivations, Farms, EnvSummary, EnvCleaned
 
 app = create_app(enable_scheduler=True)
 
 from flask import jsonify, request
 from datetime import datetime
+from sqlalchemy import func
 
 API_SECRET = os.getenv("API_SECRET", "tomai-internal-secret")
 
@@ -36,15 +38,73 @@ def check_api_key():
 def health():
     return jsonify({"status": "ok"})
 
+def get_latest_daily_summary(cult_id):
+    return EnvSummary.query.filter(EnvSummary.cult_id == cult_id).order_by(EnvSummary.measure_date.desc()).first()
+
+def get_previous_daily_summary(cult_id, latest_date):
+    if not latest_date:
+        return None
+    return EnvSummary.query.filter(EnvSummary.cult_id == cult_id, EnvSummary.measure_date < latest_date).order_by(EnvSummary.measure_date.desc()).first()
+
+def get_daily_chart_rows(cult_id, days=7):
+    rows = EnvSummary.query.filter(EnvSummary.cult_id == cult_id).order_by(EnvSummary.measure_date.desc()).limit(days).all()
+    return list(reversed(rows))
+
+def get_latest_hourly_base_date(cult_id):
+    return EnvCleaned.query.with_entities(func.max(EnvCleaned.measure_date)).filter(EnvCleaned.cult_id == cult_id).scalar()
+
+def get_hourly_chart_rows(cult_id, base_date):
+    if not base_date:
+        return []
+    return EnvCleaned.query.filter(EnvCleaned.cult_id == cult_id, EnvCleaned.measure_date == base_date).order_by(EnvCleaned.measure_time.asc()).all()
+
+def build_change_info(curr, prev, unit="", percent=False):
+    if curr is None or prev is None:
+        return None
+    curr, prev = float(curr), float(prev)
+    diff = curr - prev
+    if percent:
+        if prev == 0:
+            return None
+        rate = (diff / prev) * 100
+        return {"direction": "up" if rate > 0 else "down" if rate < 0 else "same",
+                "value": abs(rate), "text": f"{abs(rate):.1f}% 어제 대비"}
+    return {"direction": "up" if diff > 0 else "down" if diff < 0 else "same",
+            "value": abs(diff), "text": f"{abs(diff):.1f}{unit} 어제 대비"}
+
+def build_monitoring_logs(latest_env, weather_alert=None, last_measured_at=None):
+    logs = []
+    if weather_alert:
+        logs.append({"level": "danger", "title": f"🚨 {weather_alert.get('title', '기상 특보 발령')}",
+                     "message": weather_alert.get('message', ''), "time_text": "실시간"})
+    if not latest_env:
+        return logs
+    date_text = latest_env.measure_date.strftime("%m/%d") if latest_env.measure_date else "-"
+    if latest_env.daily_in_temp is not None:
+        if latest_env.daily_in_temp >= 28:
+            logs.append({"level": "danger", "title": "🌡️ 고온 주의",
+                         "message": f"평균 온도가 {latest_env.daily_in_temp:.1f}°C로 높습니다.", "time_text": date_text})
+        elif latest_env.daily_in_temp <= 12:
+            logs.append({"level": "warning", "title": "❄️ 저온 주의",
+                         "message": f"야간 온도 하락에 대비하세요. (현재 {latest_env.daily_in_temp:.1f}°C)", "time_text": date_text})
+        else:
+            logs.append({"level": "success", "title": "온도 최적 상태",
+                         "message": f"실내 온도({latest_env.daily_in_temp:.1f}°C)가 생육에 적합한 범위 내에 있습니다.", "time_text": date_text})
+    if latest_env.daily_in_humidity is not None:
+        if 55 <= latest_env.daily_in_humidity <= 75:
+            logs.append({"level": "success", "title": "습도 적정",
+                         "message": f"실내 습도({latest_env.daily_in_humidity:.1f}%)가 안정적입니다.", "time_text": date_text})
+        else:
+            logs.append({"level": "warning", "title": "💧 습도 관리 필요",
+                         "message": "습도가 적정 범위를 벗어났습니다.", "time_text": date_text})
+    full_time_text = last_measured_at.strftime("%m/%d %H:%M") if last_measured_at else date_text
+    logs.append({"level": "info", "title": "시스템 알림",
+                 "message": "환경센서가 최신 데이터를 성공적으로 수집하였습니다.", "time_text": full_time_text})
+    return logs[:10]
+
 @app.route("/api/monitoring/<int:cult_id>")
 def api_monitoring(cult_id):
     try:
-        from smartfarm.models import Cultivations, Farms
-        from smartfarm.views.monitoring_views import (
-            get_latest_daily_summary, get_previous_daily_summary,
-            get_daily_chart_rows, get_latest_hourly_base_date,
-            get_hourly_chart_rows, build_change_info, build_monitoring_logs
-        )
         from smartfarm.services.weather_service import get_weather_alert_status
 
         latest_env = get_latest_daily_summary(cult_id)
@@ -89,6 +149,7 @@ def api_monitoring(cult_id):
             "chart_temp_data": [float(r.daily_in_temp) if r.daily_in_temp is not None else None for r in chart_rows],
             "hourly_chart_labels": [r.measure_time.strftime("%H:%M") if r.measure_time else "" for r in hourly_rows],
             "hourly_chart_temp_data": [float(r.in_temp) if r.in_temp is not None else None for r in hourly_rows],
+            "hourly_base_date": hourly_base_date.strftime("%Y-%m-%d") if hourly_base_date else None,
             "logs": logs,
             "temp_change": build_change_info(
                 latest_env.daily_in_temp if latest_env else None,
@@ -97,6 +158,9 @@ def api_monitoring(cult_id):
                 latest_env.daily_in_humidity if latest_env else None,
                 previous_env.daily_in_humidity if previous_env else None, unit="%"),
             "co2_change": build_change_info(
+                latest_env.daily_in_co2 if latest_env else None,
+                previous_env.daily_in_co2 if previous_env else None, unit=" ppm"),
+            "solar_change": build_change_info(
                 latest_env.daily_acc_solar if latest_env else None,
                 previous_env.daily_acc_solar if previous_env else None, percent=True),
         })
@@ -108,12 +172,10 @@ def api_monitoring(cult_id):
 @app.route("/api/growth/<int:cult_id>")
 def api_growth(cult_id):
     try:
-        from smartfarm.models import Cultivations
         from smartfarm.views.growth_views import (
             get_latest_environment, get_latest_growth_list,
             get_recent_env_7d_avg, recommend_environment, build_height_forecast
         )
-
         cult = db.session.get(Cultivations, cult_id)
         latest_env = get_latest_environment(cult_id)
         latest_growth_list = get_latest_growth_list(cult_id)
