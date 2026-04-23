@@ -224,13 +224,20 @@ def api_prediction_run():
         user_id = data.get("user_id")
         farm_id = data.get("farm_id")
         from smartfarm.services.prediction_service import run_default_prediction, run_ml_prediction
-        from smartfarm.models import Cultivations
-        cult = Cultivations.query.get(cult_id)
-        if not cult:
-            return jsonify({"error": "재배 정보 없음"}), 404
-        result = run_ml_prediction(user_id, farm_id, cult_id, cult)
+        result = run_ml_prediction(cult_id)
         if not result:
-            result = run_default_prediction(user_id, farm_id, cult_id, cult)
+            result = run_default_prediction(
+                cult_id=cult_id,
+                farm_id=farm_id,
+                planting_date=data.get("planting_date"),
+                item=data.get("item"),
+                crop_cycle=data.get("crop_cycle"),
+                item_variety=data.get("item_variety"),
+                planting_area=data.get("planting_area"),
+                planting_density=data.get("planting_density"),
+                house_type=data.get("house_type"),
+                house_form=data.get("house_form")
+            )
         return jsonify({"status": "success", "result": result}), 200
     except Exception as e:
         print(f"[API PREDICTION ERROR] {e}")
