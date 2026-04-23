@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y libaio1t64 wget unzip && \
 
 COPY . .
 RUN pip install flask flask-sqlalchemy flask-migrate flask-wtf \
-    python-dotenv oracledb waitress joblib numpy pandas scikit-learn xgboost APScheduler requests
+    python-dotenv oracledb waitress joblib numpy pandas scikit-learn xgboost APScheduler requests psycopg2-binary
 
 ENV ORACLE_CLIENT_PATH=/opt/oracle
 ENV DB_HOST=172.17.0.2
