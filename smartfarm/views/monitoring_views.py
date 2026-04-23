@@ -28,7 +28,7 @@ def build_monitoring_logs(latest_env=None, weather_alert=None, last_measured_at=
     if not latest_env:
         return logs
     if isinstance(latest_env, dict):
-        date_text = (latest_env.get("measure_date") or "-")[:5].replace("-", "/")
+        date_text = (latest_env.get("measure_date") or "-")[5:10].replace("-", "/")
         temp = latest_env.get("daily_in_temp")
         humidity = latest_env.get("daily_in_humidity")
     else:
