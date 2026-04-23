@@ -5,15 +5,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv
 load_dotenv()
 
-import oracledb
-import platform
-ORACLE_PATH = os.getenv("ORACLE_CLIENT_PATH")
-if platform.system() == "Darwin":
-    try:
-        oracledb.init_oracle_client(lib_dir=ORACLE_PATH)
-        print(f"[Oracle] thick mode: {ORACLE_PATH}")
-    except Exception as e:
-        print(f"[Oracle] {e}")
+
 
 from smartfarm import create_app, db
 from smartfarm.models import Cultivations, Farms, EnvSummary, EnvCleaned
