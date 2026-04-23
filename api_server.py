@@ -211,3 +211,12 @@ def api_growth(cult_id):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=False, use_reloader=False)
+
+@app.route("/api/sync/run")
+def run_sync():
+    try:
+        from smartfarm.services.cloud_sync_service import run_full_sync
+        run_full_sync(app)
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
