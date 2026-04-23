@@ -577,7 +577,7 @@ def run_default_prediction(**kwargs) -> Dict[str, Any]:
         if model_p and not df_market.empty:
             try:
                 price_s = df_market["price_per_kg"]
-                temp_s = df_market["AVG_TEMP"]
+                temp_s = df_market["avg_temp"]
                 input_p = pd.DataFrame([{
                     "MA_30D": price_s.tail(30).mean(),
                     "MA_90D": price_s.tail(90).mean(),
