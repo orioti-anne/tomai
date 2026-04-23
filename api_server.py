@@ -216,7 +216,7 @@ def run_sync():
 @app.route("/api/prediction/run", methods=["POST"])
 def api_prediction_run():
     key = request.headers.get("X-API-Key")
-    if key != API_KEY:
+    if key != API_SECRET:
         return jsonify({"error": "unauthorized"}), 401
     try:
         data = request.get_json()
