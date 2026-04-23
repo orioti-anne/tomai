@@ -89,7 +89,7 @@ class Products(db.Model):
 
 
 class ProdSummary(db.Model):
-    __tablename__ = 'PROD_SUMMARY'
+    __tablename__ = 'prod_summary'
     prodsu_id = db.Column('PRODSU_ID', db.Integer, db.Sequence('PROD_SUMMARY_SEQ'), primary_key=True)
     cult_id = db.Column('CULT_ID', db.Integer, db.ForeignKey('cultivations.cult_id'), nullable=False)
     cult_end_date = db.Column('CULT_END_DATE', db.Date)
@@ -128,7 +128,7 @@ class Environment(db.Model):
 
 
 class EnvCleaned(db.Model):
-    __tablename__ = 'ENV_CLEANED'
+    __tablename__ = 'env_cleaned'
     envcl_id = db.Column('ENVCL_ID', db.Integer, db.Sequence('SEQ_ENVCL_ID'), primary_key=True)
     env_id = db.Column('ENV_ID', db.Integer, db.ForeignKey('environment.env_id'), nullable=False)
     cult_id = db.Column('CULT_ID', db.Integer, db.ForeignKey('cultivations.cult_id'), nullable=False)
@@ -153,7 +153,7 @@ class EnvCleaned(db.Model):
 
 
 class EnvSummary(db.Model):
-    __tablename__ = 'ENV_SUMMARY'
+    __tablename__ = 'env_summary'
     envsu_id = db.Column('ENVSU_ID', db.Integer, db.Sequence('SEQ_ENVSU_ID'), primary_key=True)
     cult_id = db.Column('CULT_ID', db.Integer, db.ForeignKey('cultivations.cult_id'), nullable=False)
     measure_date = db.Column('MEASURE_DATE', db.Date, nullable=False)
@@ -199,7 +199,7 @@ class Growth(db.Model):
 
 
 class GrowSummary(db.Model):
-    __tablename__ = 'GROW_SUMMARY'
+    __tablename__ = 'grow_summary'
     growsu_id = db.Column('GROWSU_ID', db.Integer, db.Sequence('GROW_SUMMARY_SEQ'), primary_key=True)
     growth_id = db.Column('GROWTH_ID', db.Integer, db.ForeignKey('growth.growth_id'), nullable=True)
     cult_id = db.Column('CULT_ID', db.Integer, db.ForeignKey('cultivations.cult_id'), nullable=False)
