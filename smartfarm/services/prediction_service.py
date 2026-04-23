@@ -141,7 +141,7 @@ def _get_recent_market_data() -> pd.DataFrame:
         df["PRICE_DATE"] = pd.to_datetime(df["PRICE_DATE"])
 
         df = df.set_index("PRICE_DATE").resample('D').asfreq().reset_index()
-        df["PRICE_PER_KG"] = df["PRICE_PER_KG"].ffill().bfill()
+        df["price_per_kg"] = df["price_per_kg"].ffill().bfill()
         df["AVG_TEMP"] = df["AVG_TEMP"].ffill().bfill()
 
         return df
@@ -153,19 +153,18 @@ def _get_recent_market_data() -> pd.DataFrame:
 def _get_latest_market_price() -> float:
     try:
         query = text("""
-                     SELECT PRICE_PER_KG
-                     FROM (SELECT PRICE_PER_KG
-                           FROM KAMIS_TOMATO_PRICE
-                           WHERE ITEM_NAME = '완숙토마토'
-                           ORDER BY PRICE_DATE DESC)
-                     WHERE ROWNUM = 1
+                     SELECT price_per_kg
+                     FROM kamis_tomato_price
+                     WHERE item_name = '완숙토마토'
+                     ORDER BY price_date DESC
+                     LIMIT 1
                      """)
 
         df = pd.read_sql(query, db.engine)
 
         if not df.empty:
             df.columns = [str(c).upper() for c in df.columns]
-            return _to_float(df.iloc[0]["PRICE_PER_KG"], 3500.0)
+            return _to_float(df.iloc[0]["price_per_kg"], 3500.0)
 
     except Exception as e:
         print(f"[LATEST PRICE ERROR] {type(e).__name__}: {e}")
@@ -577,7 +576,7 @@ def run_default_prediction(**kwargs) -> Dict[str, Any]:
         final_price = 3500.0
         if model_p and not df_market.empty:
             try:
-                price_s = df_market["PRICE_PER_KG"]
+                price_s = df_market["price_per_kg"]
                 temp_s = df_market["AVG_TEMP"]
                 input_p = pd.DataFrame([{
                     "MA_30D": price_s.tail(30).mean(),
