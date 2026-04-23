@@ -34,7 +34,7 @@
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                 </span>
                 {% if latest_env %}
-                    기준일 {{ latest_env.measure_date.strftime('%m/%d') if latest_env.measure_date else '' }}
+                    기준일 {{ latest_env.measure_date[5:10].replace("-", "/") if latest_env and latest_env.measure_date else "" }}
                 {% else %}
                     데이터 없음
                 {% endif %}
