@@ -391,7 +391,10 @@ def get_weather_alert_status(region_l1, region_l2):
                 if (":" in line or "구역" in line) and (short_l1 in line or region_l2 in line):
                     alert_title = "기상 특보 발령"
                     try:
-                        alert_title = t6.split("o ")[1].split(" :")[0]
+                        for part in t6.split("o "):
+                            if short_l1 in part or region_l2 in part:
+                                alert_title = part.split(" :")[0].strip()
+                                break
                     except:
                         pass
                     return {
