@@ -138,11 +138,11 @@ def _get_recent_market_data() -> pd.DataFrame:
         if df.empty: return pd.DataFrame()
 
         df.columns = [str(c).lower() for c in df.columns]
-        df["PRICE_DATE"] = pd.to_datetime(df["PRICE_DATE"])
+        df["price_date"] = pd.to_datetime(df["price_date"])
 
-        df = df.set_index("PRICE_DATE").resample('D').asfreq().reset_index()
+        df = df.set_index("price_date").resample('D').asfreq().reset_index()
         df["price_per_kg"] = df["price_per_kg"].ffill().bfill()
-        df["AVG_TEMP"] = df["AVG_TEMP"].ffill().bfill()
+        df["avg_temp"] = df["avg_temp"].ffill().bfill()
 
         return df
     except Exception as e:
