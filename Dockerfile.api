@@ -17,5 +17,7 @@ RUN pip install flask flask-sqlalchemy flask-migrate flask-wtf \
 ENV ORACLE_CLIENT_PATH=/opt/oracle
 ENV DB_HOST=172.17.0.2
 ENV PYTHONUNBUFFERED=1
+ENV TZ=Asia/Seoul
+ENV TZ=Asia/Seoul
 
 CMD ["python", "run_api.py"]
