@@ -21,8 +21,8 @@ def _get_cultivation_base(cult_id: int):
             c.planting_date,
             c.item,
             c.item_variety,
-            f.address,
-            f.region
+            f.region_l1,
+            f.region_l2
         FROM cultivations c
         LEFT JOIN farms f ON c.farm_id = f.farm_id
         WHERE c.cult_id = :cult_id
