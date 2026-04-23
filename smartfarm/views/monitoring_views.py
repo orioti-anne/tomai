@@ -23,7 +23,38 @@ def get_selected_cultivation(cultivations, cult_id):
                 return cult
     return cultivations[0]
 def build_monitoring_logs(latest_env=None, weather_alert=None, last_measured_at=None):
-    return []
+    logs = []
+    if weather_alert:
+        logs.append({"level": "danger", "title": f"🚨 {weather_alert.get('title', '기상 특보 발령')}",
+                     "message": weather_alert.get('message', ''), "time_text": "실시간"})
+    if not latest_env:
+        return logs
+    date_text = latest_env.get("measure_date", "-")[:5].replace("-", "/") if isinstance(latest_env, dict) else (latest_env.measure_date.strftime("%m/%d") if latest_env.measure_date else "-")
+    
+    temp = latest_env.get("daily_in_temp") if isinstance(latest_env, dict) else latest_env.daily_in_temp
+    humidity = latest_env.get("daily_in_humidity") if isinstance(latest_env, dict) else latest_env.daily_in_humidity
+    
+    if temp is not None:
+        if float(temp) >= 28:
+            logs.append({"level": "danger", "title": "🌡️ 고온 주의",
+                         "message": f"평균 온도가 {float(temp):.1f}°C로 높습니다.", "time_text": date_text})
+        elif float(temp) <= 12:
+            logs.append({"level": "warning", "title": "❄️ 저온 주의",
+                         "message": f"야간 온도 하락에 대비하세요. (현재 {float(temp):.1f}°C)", "time_text": date_text})
+        else:
+            logs.append({"level": "success", "title": "온도 최적 상태",
+                         "message": f"실내 온도({float(temp):.1f}°C)가 생육에 적합한 범위 내에 있습니다.", "time_text": date_text})
+    if humidity is not None:
+        if 55 <= float(humidity) <= 75:
+            logs.append({"level": "success", "title": "습도 적정",
+                         "message": f"실내 습도({float(humidity):.1f}%)가 안정적입니다.", "time_text": date_text})
+        else:
+            logs.append({"level": "warning", "title": "💧 습도 관리 필요",
+                         "message": "습도가 적정 범위를 벗어났습니다.", "time_text": date_text})
+    full_time_text = last_measured_at.strftime("%m/%d %H:%M") if last_measured_at else date_text
+    logs.append({"level": "info", "title": "시스템 알림",
+                 "message": "환경센서가 최신 데이터를 성공적으로 수집하였습니다.", "time_text": full_time_text})
+    return logs[:10]
 def fetch_monitoring_data(cult_id):
     try:
         res = requests.get(
