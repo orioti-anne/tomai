@@ -1,3 +1,4 @@
+import os
 import json
 from datetime import datetime
 
@@ -195,18 +196,46 @@ def run_prediction_api():
             cult_id = new_cult.cult_id
             planting_area = input_planting_area
 
-        result = run_default_prediction(
-            cult_id=cult_id,
-            farm_id=farm_id,
-            planting_date=planting_date,
-            item=item,
-            crop_cycle=crop_cycle,
-            item_variety=item_variety,
-            planting_area=planting_area,
-            planting_density=planting_density,
-            house_type=house_type,
-            house_form=house_form
-        )
+        import requests as req
+        MAC_API_URL = os.getenv("MAC_API_URL", "http://100.126.59.34:8000")
+        MAC_API_KEY = os.getenv("MAC_API_KEY", "tomai-internal-secret")
+        try:
+            mac_res = req.post(
+                f"{MAC_API_URL}/api/prediction/run",
+                headers={"X-API-Key": MAC_API_KEY},
+                json={
+                    "cult_id": cult_id,
+                    "user_id": g.user.user_id,
+                    "farm_id": farm_id,
+                    "planting_date": planting_date,
+                    "item": item,
+                    "crop_cycle": crop_cycle,
+                    "item_variety": item_variety,
+                    "planting_area": planting_area,
+                    "planting_density": planting_density,
+                    "house_type": house_type,
+                    "house_form": house_form
+                },
+                timeout=30
+            )
+            if mac_res.status_code == 200:
+                result = mac_res.json().get("result", {})
+            else:
+                raise Exception(f"맥 미니 API 오류: {mac_res.status_code}")
+        except Exception as mac_e:
+            print(f"[PREDICTION] 맥 미니 API 실패, 로컬 fallback: {mac_e}")
+            result = run_default_prediction(
+                cult_id=cult_id,
+                farm_id=farm_id,
+                planting_date=planting_date,
+                item=item,
+                crop_cycle=crop_cycle,
+                item_variety=item_variety,
+                planting_area=planting_area,
+                planting_density=planting_density,
+                house_type=house_type,
+                house_form=house_form
+            )
 
         expected_harvest_date = None
         if result.get("expected_harvest_date"):
