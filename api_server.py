@@ -212,3 +212,26 @@ def run_sync():
         return jsonify({"status": "success"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/prediction/run", methods=["POST"])
+def api_prediction_run():
+    key = request.headers.get("X-API-Key")
+    if key != API_KEY:
+        return jsonify({"error": "unauthorized"}), 401
+    try:
+        data = request.get_json()
+        cult_id = data.get("cult_id")
+        user_id = data.get("user_id")
+        farm_id = data.get("farm_id")
+        from smartfarm.services.prediction_service import run_default_prediction, run_ml_prediction
+        from smartfarm.models import Cultivations
+        cult = Cultivations.query.get(cult_id)
+        if not cult:
+            return jsonify({"error": "재배 정보 없음"}), 404
+        result = run_ml_prediction(user_id, farm_id, cult_id, cult)
+        if not result:
+            result = run_default_prediction(user_id, farm_id, cult_id, cult)
+        return jsonify({"status": "success", "result": result}), 200
+    except Exception as e:
+        print(f"[API PREDICTION ERROR] {e}")
+        return jsonify({"error": str(e)}), 500
