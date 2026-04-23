@@ -1,133 +1,94 @@
 import os
-import psycopg2
+import requests
 from datetime import datetime
 
-CLOUD_DB_URL = os.getenv("CLOUD_DB_URL")
-
-def get_cloud_conn():
-    return psycopg2.connect(CLOUD_DB_URL)
+GCP_SYNC_URL = os.getenv("GCP_SYNC_URL", "http://136.119.67.188:5000")
 
 def sync_farms_and_cultivations(app):
-    """농장/재배 정보를 클라우드 DB에 동기화"""
     from smartfarm.models import Farms, Cultivations
     with app.app_context():
         try:
-            conn = get_cloud_conn()
-            cur = conn.cursor()
-
             farms = Farms.query.filter_by(is_active='Y').all()
-            for f in farms:
-                cur.execute("""
-                    INSERT INTO cache_farms (farm_id, user_id, farm_name, region_l1, region_l2, total_area, is_active, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (farm_id) DO UPDATE SET
-                        farm_name=EXCLUDED.farm_name,
-                        region_l1=EXCLUDED.region_l1,
-                        region_l2=EXCLUDED.region_l2,
-                        total_area=EXCLUDED.total_area,
-                        updated_at=EXCLUDED.updated_at
-                """, (f.farm_id, f.user_id, f.farm_name, f.region_l1, f.region_l2,
-                      float(f.total_area) if f.total_area else None, f.is_active, datetime.now()))
-
             cultivations = Cultivations.query.filter(Cultivations.status != 'hidden').all()
-            for c in cultivations:
-                cur.execute("""
-                    INSERT INTO cache_cultivations (cult_id, farm_id, cult_name, item, item_variety, crop_cycle, planting_date, planting_area, status, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (cult_id) DO UPDATE SET
-                        cult_name=EXCLUDED.cult_name,
-                        item=EXCLUDED.item,
-                        status=EXCLUDED.status,
-                        updated_at=EXCLUDED.updated_at
-                """, (c.cult_id, c.farm_id, c.cult_name, c.item, c.item_variety,
-                      int(c.crop_cycle) if c.crop_cycle else None,
-                      c.planting_date, float(c.planting_area) if c.planting_area else None,
-                      c.status, datetime.now()))
 
-            conn.commit()
-            cur.close()
-            conn.close()
-            print(f"[SYNC] 농장/재배 정보 동기화 완료: {len(farms)}개 농장, {len(cultivations)}개 재배")
+            payload = {
+                "farms": [{
+                    "farm_id": f.farm_id,
+                    "user_id": f.user_id,
+                    "farm_name": f.farm_name,
+                    "region_l1": f.region_l1,
+                    "region_l2": f.region_l2,
+                    "total_area": float(f.total_area) if f.total_area else None,
+                    "is_active": f.is_active
+                } for f in farms],
+                "cultivations": [{
+                    "cult_id": c.cult_id,
+                    "farm_id": c.farm_id,
+                    "cult_name": c.cult_name,
+                    "item": c.item,
+                    "item_variety": c.item_variety,
+                    "crop_cycle": int(c.crop_cycle) if c.crop_cycle else None,
+                    "planting_date": c.planting_date.strftime("%Y-%m-%d") if c.planting_date else None,
+                    "planting_area": float(c.planting_area) if c.planting_area else None,
+                    "status": c.status
+                } for c in cultivations]
+            }
+
+            res = requests.post(f"{GCP_SYNC_URL}/api/sync/farms", json=payload, timeout=10)
+            print(f"[SYNC] 농장/재배 동기화: {res.status_code}")
         except Exception as e:
-            print(f"[SYNC] 농장/재배 동기화 오류: {e}")
+            print(f"[SYNC] 농장/재배 오류: {e}")
 
 def sync_env_summary(app):
-    """최신 환경 요약을 클라우드 DB에 동기화"""
-    from smartfarm.models import EnvSummary, Cultivations
+    from smartfarm.models import Cultivations, EnvSummary
     with app.app_context():
         try:
-            conn = get_cloud_conn()
-            cur = conn.cursor()
-
             cults = Cultivations.query.filter(Cultivations.status != 'hidden').all()
+            env_list = []
             for c in cults:
                 latest = EnvSummary.query.filter_by(cult_id=c.cult_id).order_by(EnvSummary.measure_date.desc()).first()
                 if not latest:
                     continue
-                cur.execute("""
-                    INSERT INTO cache_env_summary (cult_id, measure_date, daily_in_temp, daily_in_humidity, daily_in_co2, daily_acc_solar, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (cult_id) DO UPDATE SET
-                        measure_date=EXCLUDED.measure_date,
-                        daily_in_temp=EXCLUDED.daily_in_temp,
-                        daily_in_humidity=EXCLUDED.daily_in_humidity,
-                        daily_in_co2=EXCLUDED.daily_in_co2,
-                        daily_acc_solar=EXCLUDED.daily_acc_solar,
-                        updated_at=EXCLUDED.updated_at
-                """, (c.cult_id, latest.measure_date,
-                      float(latest.daily_in_temp) if latest.daily_in_temp else None,
-                      float(latest.daily_in_humidity) if latest.daily_in_humidity else None,
-                      float(latest.daily_in_co2) if latest.daily_in_co2 else None,
-                      float(latest.daily_acc_solar) if latest.daily_acc_solar else None,
-                      datetime.now()))
+                env_list.append({
+                    "cult_id": c.cult_id,
+                    "measure_date": latest.measure_date.strftime("%Y-%m-%d") if latest.measure_date else None,
+                    "daily_in_temp": float(latest.daily_in_temp) if latest.daily_in_temp else None,
+                    "daily_in_humidity": float(latest.daily_in_humidity) if latest.daily_in_humidity else None,
+                    "daily_in_co2": float(latest.daily_in_co2) if latest.daily_in_co2 else None,
+                    "daily_acc_solar": float(latest.daily_acc_solar) if latest.daily_acc_solar else None,
+                })
 
-            conn.commit()
-            cur.close()
-            conn.close()
-            print(f"[SYNC] 환경 요약 동기화 완료")
+            res = requests.post(f"{GCP_SYNC_URL}/api/sync/env", json={"env_list": env_list}, timeout=10)
+            print(f"[SYNC] 환경 요약 동기화: {res.status_code}")
         except Exception as e:
-            print(f"[SYNC] 환경 요약 동기화 오류: {e}")
+            print(f"[SYNC] 환경 요약 오류: {e}")
 
 def sync_predictions(app):
-    """최신 예측 결과를 클라우드 DB에 동기화"""
-    from smartfarm.models import PredictionResults, Cultivations
+    from smartfarm.models import Cultivations, PredictionResults
     with app.app_context():
         try:
-            conn = get_cloud_conn()
-            cur = conn.cursor()
-
             cults = Cultivations.query.filter(Cultivations.status != 'hidden').all()
+            predictions = []
             for c in cults:
                 pred = PredictionResults.query.filter_by(cult_id=c.cult_id).order_by(PredictionResults.prediction_date.desc()).first()
                 if not pred:
                     continue
-                cur.execute("""
-                    INSERT INTO cache_prediction (cult_id, expected_harvest_date, expected_quantity, expected_sales, expected_price_per_kg, latest_market_price, prediction_date, updated_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (cult_id) DO UPDATE SET
-                        expected_harvest_date=EXCLUDED.expected_harvest_date,
-                        expected_quantity=EXCLUDED.expected_quantity,
-                        expected_sales=EXCLUDED.expected_sales,
-                        expected_price_per_kg=EXCLUDED.expected_price_per_kg,
-                        latest_market_price=EXCLUDED.latest_market_price,
-                        prediction_date=EXCLUDED.prediction_date,
-                        updated_at=EXCLUDED.updated_at
-                """, (c.cult_id, pred.expected_harvest_date,
-                      float(pred.expected_quantity) if pred.expected_quantity else None,
-                      float(pred.expected_sales) if pred.expected_sales else None,
-                      float(pred.expected_price_per_kg) if pred.expected_price_per_kg else None,
-                      float(pred.latest_market_price) if pred.latest_market_price else None,
-                      pred.prediction_date, datetime.now()))
+                predictions.append({
+                    "cult_id": c.cult_id,
+                    "expected_harvest_date": pred.expected_harvest_date.strftime("%Y-%m-%d") if pred.expected_harvest_date else None,
+                    "expected_quantity": float(pred.expected_quantity) if pred.expected_quantity else None,
+                    "expected_sales": float(pred.expected_sales) if pred.expected_sales else None,
+                    "expected_price_per_kg": float(pred.expected_price_per_kg) if pred.expected_price_per_kg else None,
+                    "latest_market_price": float(pred.latest_market_price) if pred.latest_market_price else None,
+                    "prediction_date": pred.prediction_date.strftime("%Y-%m-%d %H:%M:%S") if pred.prediction_date else None,
+                })
 
-            conn.commit()
-            cur.close()
-            conn.close()
-            print(f"[SYNC] 예측 결과 동기화 완료")
+            res = requests.post(f"{GCP_SYNC_URL}/api/sync/prediction", json={"predictions": predictions}, timeout=10)
+            print(f"[SYNC] 예측 결과 동기화: {res.status_code}")
         except Exception as e:
-            print(f"[SYNC] 예측 결과 동기화 오류: {e}")
+            print(f"[SYNC] 예측 결과 오류: {e}")
 
 def run_full_sync(app):
-    """전체 동기화 실행"""
     print(f"[SYNC] 전체 동기화 시작: {datetime.now()}")
     sync_farms_and_cultivations(app)
     sync_env_summary(app)
