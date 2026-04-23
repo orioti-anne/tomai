@@ -4,7 +4,7 @@ from datetime import datetime
 
 class Users(db.Model):
     __tablename__ = 'users'
-    user_id = db.Column(db.Integer, db.Sequence('users_seq', start=1, increment=1), primary_key=True)
+    user_id = db.Column(db.Integer, db.Sequence('users_user_id_seq'), primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(255), nullable=False)
     name = db.Column(db.String(100), nullable=False)
@@ -16,7 +16,7 @@ class Users(db.Model):
 
 class Question(db.Model):
     __tablename__ = 'question'
-    id = db.Column(db.Integer, db.Sequence('question_seq', start=1, increment=1), primary_key=True)
+    id = db.Column(db.Integer, db.Sequence('question_id_seq'), primary_key=True)
     subject = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text(), nullable=False)
     created_date = db.Column(db.DateTime(), nullable=False)
@@ -27,7 +27,7 @@ class Question(db.Model):
 
 class Answer(db.Model):
     __tablename__ = 'answer'
-    id = db.Column(db.Integer, db.Sequence('answer_seq', start=1, increment=1), primary_key=True)
+    id = db.Column(db.Integer, db.Sequence('answer_id_seq'), primary_key=True)
     question_id = db.Column(db.Integer, db.ForeignKey('question.id', ondelete='CASCADE'), nullable=False)
     question = db.relationship('Question',backref=db.backref('answers_set', cascade='all, delete-orphan', lazy=True))
     content = db.Column(db.Text(), nullable=False)
@@ -41,7 +41,7 @@ def get_current_year():
 
 class Farms(db.Model):
     __tablename__ = 'farms'
-    farm_id = db.Column(db.Integer, db.Sequence('farms_seq'), primary_key=True)
+    farm_id = db.Column(db.Integer, db.Sequence('farms_farm_id_seq'), primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
     farm_name = db.Column(db.String(100), nullable=False)
     farm_num = db.Column(db.Integer, nullable=True)
@@ -57,7 +57,7 @@ class Farms(db.Model):
 
 class Cultivations(db.Model):
     __tablename__ = 'cultivations'
-    cult_id = db.Column(db.Integer, db.Sequence('cultivations_seq'), primary_key=True)
+    cult_id = db.Column(db.Integer, db.Sequence('cultivations_cult_id_seq'), primary_key=True)
     farm_id = db.Column(db.Integer, db.ForeignKey('farms.farm_id'), nullable=False)
     item = db.Column(db.String(100))
     item_variety = db.Column(db.String(100))
@@ -79,7 +79,7 @@ class Cultivations(db.Model):
 
 class Products(db.Model):
     __tablename__ = 'products'
-    product_id = db.Column(db.Integer, db.Sequence('products_seq'), primary_key=True)
+    product_id = db.Column(db.Integer, db.Sequence('products_product_id_seq'), primary_key=True)
     cult_id = db.Column(db.Integer, db.ForeignKey('cultivations.cult_id'), nullable=False)
     production_date = db.Column(db.Date)
     total_quantity = db.Column(db.Float)
@@ -172,7 +172,7 @@ class EnvSummary(db.Model):
 
 class Growth(db.Model):
     __tablename__ = 'growth'
-    growth_id = db.Column(db.Integer, db.Sequence('growth_seq'), primary_key=True)
+    growth_id = db.Column(db.Integer, db.Sequence('growth_growth_id_seq'), primary_key=True)
     cult_id = db.Column(db.Integer, db.ForeignKey('cultivations.cult_id'), nullable=False)
     inspect_date = db.Column(db.Date, nullable=False)
     plant_num = db.Column(db.Integer)
@@ -229,7 +229,7 @@ class GrowSummary(db.Model):
 
 class PredictionResults(db.Model):
     __tablename__ = 'prediction_results'
-    prediction_id = db.Column(db.Integer, db.Sequence('prediction_results_seq', start=1, increment=1), primary_key=True)
+    prediction_id = db.Column(db.Integer, db.Sequence('prediction_results_prediction_id_seq'), primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.user_id'), nullable=False)
     farm_id = db.Column(db.Integer, db.ForeignKey('farms.farm_id'), nullable=False)
     cult_id = db.Column(db.Integer, db.ForeignKey('cultivations.cult_id'), nullable=False)
