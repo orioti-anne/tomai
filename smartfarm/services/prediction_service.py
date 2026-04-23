@@ -137,7 +137,7 @@ def _get_recent_market_data() -> pd.DataFrame:
         df = pd.read_sql(query, db.engine)
         if df.empty: return pd.DataFrame()
 
-        df.columns = [str(c).upper() for c in df.columns]
+        df.columns = [str(c).lower() for c in df.columns]
         df["PRICE_DATE"] = pd.to_datetime(df["PRICE_DATE"])
 
         df = df.set_index("PRICE_DATE").resample('D').asfreq().reset_index()
@@ -163,7 +163,7 @@ def _get_latest_market_price() -> float:
         df = pd.read_sql(query, db.engine)
 
         if not df.empty:
-            df.columns = [str(c).upper() for c in df.columns]
+            df.columns = [str(c).lower() for c in df.columns]
             return _to_float(df.iloc[0]["price_per_kg"], 3500.0)
 
     except Exception as e:
