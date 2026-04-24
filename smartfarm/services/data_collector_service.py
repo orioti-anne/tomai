@@ -12,7 +12,7 @@ load_dotenv()
 class PriceCollector:
     API_KEY = os.getenv("KAMIS_API_KEY")
     USER_ID = os.getenv("KAMIS_USER_ID")
-    BASE_URL = os.getenv("KAMIS_BASE_URL", "http://www.kamis.or.kr/service/price/xml.do")
+    BASE_URL = os.getenv("KAMIS_BASE_URL", "https://www.kamis.or.kr/service/price/xml.do")
 
     @staticmethod
     def collect_tomato_price():
@@ -40,7 +40,7 @@ class PriceCollector:
             }
 
             try:
-                response = requests.get(PriceCollector.BASE_URL, params=params, timeout=10)
+                response = requests.get(PriceCollector.BASE_URL, params=params, timeout=10, verify=False)
                 try:
                     data = response.json()
                 except ValueError:
