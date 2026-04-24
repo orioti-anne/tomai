@@ -43,10 +43,15 @@ class PriceCollector:
             }
 
             try:
-                response = httpx.get(PriceCollector.BASE_URL, params=params, timeout=10, verify=False)
+                import subprocess, json as _json, urllib.parse
+                _url = PriceCollector.BASE_URL + "?" + urllib.parse.urlencode(params)
+                _res = subprocess.run(
+                    ["curl", "-k", "-s", "--max-time", "15", _url],
+                    capture_output=True, text=True
+                )
                 try:
-                    data = response.json()
-                except ValueError:
+                    data = _json.loads(_res.stdout)
+                except Exception:
                     print(f"{target_str}: JSON 응답이 아닙니다. (시장 휴무 또는 서버 오류)")
                     continue
 
