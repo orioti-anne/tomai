@@ -46,7 +46,7 @@ class PriceCollector:
                 import subprocess, json as _json, urllib.parse
                 _url = PriceCollector.BASE_URL + "?" + urllib.parse.urlencode(params)
                 _res = subprocess.run(
-                    ["curl", "-k", "-s", "--max-time", "15", _url],
+                    ["curl", "-s", "-L", "--http1.1", "--max-time", "15", "-H", "User-Agent: Mozilla/5.0", _url],
                     capture_output=True, text=True
                 )
                 try:
