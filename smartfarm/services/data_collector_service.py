@@ -9,13 +9,6 @@ from smartfarm import db
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# KAMIS 구버전 TLS 호환
-requests.packages.urllib3.util.ssl_.DEFAULT_CIPHERS += ':HIGH:!DH:!aNULL'
-try:
-    requests.packages.urllib3.contrib.pyopenssl.DEFAULT_SSL_CIPHER_LIST += ':HIGH:!DH:!aNULL'
-except AttributeError:
-    pass
-
 load_dotenv()
 
 
