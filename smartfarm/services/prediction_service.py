@@ -17,30 +17,8 @@ from smartfarm.ml.services.environment_recommendation_service import recommend_e
 
 load_dotenv()
 
-GCP_IP = os.getenv("GCP_IP")
-if not GCP_IP:
-    raise ValueError("환경 변수 GCP_IP가 설정되지 않았습니다. .env 파일을 확인하세요.")
-
-GCP_ENDPOINT = f"http://{GCP_IP}:5000/api/receive-prediction"
-
-
 def send_to_gcp(category: str, value: float, target_date: str = None):
-    payload = {
-        "type": category,
-        "value": value,
-        "target_date": target_date or datetime.now().strftime('%Y-%m-%d')
-    }
-
-    try:
-        response = requests.post(GCP_ENDPOINT, json=payload, timeout=5)
-        if response.status_code == 200:
-            print(f"🚀 [GCP 전송 성공] {category}: {value}")
-        else:
-            print(f"⚠️ [GCP 전송 오류] 상태코드: {response.status_code}")
-    except requests.exceptions.RequestException as e:
-        print(f"❌ [GCP 전송 실패] 네트워크 연결 확인 필요: {e}")
-    except Exception as e:
-        print(f"❌ [GCP 전송 실패] 알 수 없는 오류: {e}")
+    pass  # GCP 전송 제거됨
 
 
 def run_ml_prediction_with_push(cult_id: int):
