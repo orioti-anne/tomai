@@ -95,7 +95,7 @@ class PriceCollector:
                                 (price_date, market_name, item_name, trade_unit, grade, 
                                  avg_price, unit_kg, price_per_kg, grade_score, created_at)
                             VALUES 
-                                (:p_date::date, '가락시장', '완숙토마토', :p_unit, :p_grade,
+                                (CAST(:p_date AS date), '가락시장', '완숙토마토', :p_unit, :p_grade,
                                  :p_raw_price, 1.0, :p_price_kg, 4, NOW())
                             ON CONFLICT (price_date, item_name, grade) 
                             DO UPDATE SET
