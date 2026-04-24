@@ -1,5 +1,5 @@
 import os
-import requests
+import httpx
 import datetime
 import urllib3
 from datetime import date
@@ -43,7 +43,7 @@ class PriceCollector:
             }
 
             try:
-                response = requests.get(PriceCollector.BASE_URL, params=params, timeout=10, verify=False)
+                response = httpx.get(PriceCollector.BASE_URL, params=params, timeout=10, verify=False)
                 try:
                     data = response.json()
                 except ValueError:
