@@ -171,8 +171,6 @@
 
 {% block script %}
 <script>
-const API_KEY = 'tomai-internal-secret';
-const API_BASE = '';
 let selectedCultId = {{ selected_cult.cult_id if selected_cult else 'null' }};
 let wideFile = null;
 let zoomFile = null;
@@ -249,9 +247,8 @@ async function analyzeVision(type) {
     formData.append('image', file);
 
     try {
-        const res = await fetch(`${API_BASE}/api/vision/analyze/${selectedCultId}`, {
+        const res = await fetch(`vision/analyze/${selectedCultId}`, {
             method: 'POST',
-            headers: { 'X-API-Key': API_KEY },
             body: formData
         });
         const data = await res.json();
@@ -334,8 +331,7 @@ function renderResult(data) {
 async function loadHistory() {
     if (!selectedCultId) return;
     try {
-        const res = await fetch(`${API_BASE}/api/vision/history/${selectedCultId}`, {
-            headers: { 'X-API-Key': API_KEY }
+        const res = await fetch(`/vision/history/${selectedCultId}`, {
         });
         const data = await res.json();
         renderHistory(data.history || []);
