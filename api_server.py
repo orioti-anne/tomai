@@ -201,8 +201,184 @@ def api_growth(cult_id):
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=False, use_reloader=False)
+
+from ultralytics import YOLO
+import cv2
+import numpy as np
+
+_DL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'smartfarm', 'dl', 'models')
+_disease_model = YOLO(os.path.join(_DL_DIR, 'disease_best.pt'))
+_quality_model  = YOLO(os.path.join(_DL_DIR, 'quality_best.pt'))
+_seg_model      = YOLO(os.path.join(_DL_DIR, 'seg_best.pt'))
+
+def _run_vision(image, shot_type):
+    """이미지 분석 후 통계 반환"""
+    results = {}
+
+    # wide: 품질 모델만
+    if shot_type == 'wide':
+        q = _quality_model(image, conf=0.5, verbose=False)[0]
+        quality_count = {}
+        for box in q.boxes:
+            cls = q.names[int(box.cls)]
+            quality_count[cls] = quality_count.get(cls, 0) + 1
+        total = sum(quality_count.values())
+        results['quality'] = [
+            {'class_name': k, 'count': v, 'ratio': round(v / total * 100, 2)}
+            for k, v in quality_count.items()
+        ]
+
+    # zoom: 질병 + 세그 모델
+    elif shot_type == 'zoom':
+        # 질병
+        d = _disease_model(image, conf=0.5, verbose=False)[0]
+        disease_dict = {}
+        conf_dict = {}
+        for box in d.boxes:
+            cls = d.names[int(box.cls)]
+            if cls == 'Healthy':
+                continue
+            disease_dict[cls] = disease_dict.get(cls, 0) + 1
+            conf_dict.setdefault(cls, []).append(float(box.conf))
+        results['disease'] = [
+            {'class_name': k, 'count': v, 'avg_conf': round(sum(conf_dict[k]) / len(conf_dict[k]), 3)}
+            for k, v in disease_dict.items()
+        ]
+
+        # 세그
+        s = _seg_model(image, conf=0.4, verbose=False)[0]
+        seg_dict = {}
+        if s.masks is not None:
+            for box, mask in zip(s.boxes, s.masks):
+                cls = s.names[int(box.cls)]
+                area = int(mask.data.sum().item())
+                seg_dict.setdefault(cls, []).append(area)
+
+        red_areas = seg_dict.get('tom_fruit_red_poly', [])
+        red_avg = sum(red_areas) / len(red_areas) if red_areas else None
+
+        results['segment'] = []
+        for cls, areas in seg_dict.items():
+            avg_area = sum(areas) / len(areas)
+            avg_growth = round(avg_area / red_avg * 100, 2) if red_avg else None
+            results['segment'].append({
+                'class_name': cls,
+                'count': len(areas),
+                'avg_area': round(avg_area, 2),
+                'avg_growth': avg_growth
+            })
+
+    return results
+
+
+@app.route("/api/vision/analyze/<int:cult_id>", methods=["POST"])
+def api_vision_analyze(cult_id):
+    try:
+        shot_type = request.form.get('shot_type', 'wide')  # wide or zoom
+        if 'image' not in request.files:
+            return jsonify({"error": "이미지가 없습니다"}), 400
+
+        file = request.files['image']
+        img_array = np.frombuffer(file.read(), np.uint8)
+        image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+
+        # 분석
+        vision_results = _run_vision(image, shot_type)
+
+        # DB 저장
+        from sqlalchemy import text
+        with db.engine.begin() as conn:
+            # 세션 생성
+            row = conn.execute(text("""
+                INSERT INTO vision_session (cult_id, shot_type, total_frames)
+                VALUES (:cult_id, :shot_type, 1)
+                RETURNING session_id
+            """), {'cult_id': cult_id, 'shot_type': shot_type})
+            session_id = row.fetchone()[0]
+
+            # 품질 저장
+            for q in vision_results.get('quality', []):
+                conn.execute(text("""
+                    INSERT INTO vision_quality (session_id, class_name, count, ratio)
+                    VALUES (:sid, :cls, :cnt, :ratio)
+                """), {'sid': session_id, 'cls': q['class_name'], 'cnt': q['count'], 'ratio': q['ratio']})
+
+            # 질병 저장
+            for d in vision_results.get('disease', []):
+                conn.execute(text("""
+                    INSERT INTO vision_disease (session_id, class_name, count, avg_conf)
+                    VALUES (:sid, :cls, :cnt, :conf)
+                """), {'sid': session_id, 'cls': d['class_name'], 'cnt': d['count'], 'conf': d['avg_conf']})
+
+            # 세그 저장
+            for s in vision_results.get('segment', []):
+                conn.execute(text("""
+                    INSERT INTO vision_segment (session_id, class_name, count, avg_area, avg_growth)
+                    VALUES (:sid, :cls, :cnt, :area, :growth)
+                """), {'sid': session_id, 'cls': s['class_name'], 'cnt': s['count'],
+                       'area': s['avg_area'], 'growth': s['avg_growth']})
+
+        return jsonify({
+            "session_id": session_id,
+            "shot_type": shot_type,
+            "results": vision_results
+        }), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/vision/history/<int:cult_id>")
+def api_vision_history(cult_id):
+    """Vision 분석 이력 조회"""
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            sessions = conn.execute(text("""
+                SELECT s.session_id, s.shot_type, s.analyzed_at,
+                       json_agg(DISTINCT jsonb_build_object(
+                           'class_name', q.class_name, 'count', q.count, 'ratio', q.ratio
+                       )) FILTER (WHERE q.id IS NOT NULL) as quality,
+                       json_agg(DISTINCT jsonb_build_object(
+                           'class_name', d.class_name, 'count', d.count, 'avg_conf', d.avg_conf
+                       )) FILTER (WHERE d.id IS NOT NULL) as disease,
+                       json_agg(DISTINCT jsonb_build_object(
+                           'class_name', sg.class_name, 'count', sg.count,
+                           'avg_growth', sg.avg_growth
+                       )) FILTER (WHERE sg.id IS NOT NULL) as segment
+                FROM vision_session s
+                LEFT JOIN vision_quality q ON s.session_id = q.session_id
+                LEFT JOIN vision_disease d ON s.session_id = d.session_id
+                LEFT JOIN vision_segment sg ON s.session_id = sg.session_id
+                WHERE s.cult_id = :cult_id
+                GROUP BY s.session_id
+                ORDER BY s.analyzed_at DESC
+                LIMIT 20
+            """), {'cult_id': cult_id})
+
+            history = []
+            for row in sessions:
+                history.append({
+                    'session_id': row.session_id,
+                    'shot_type': row.shot_type,
+                    'analyzed_at': row.analyzed_at.strftime("%Y-%m-%d %H:%M"),
+                    'quality': row.quality or [],
+                    'disease': row.disease or [],
+                    'segment': row.segment or []
+                })
+
+        return jsonify({'cult_id': cult_id, 'history': history}), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+
+
 
 @app.route("/api/sync/run")
 def run_sync():
@@ -242,3 +418,8 @@ def api_prediction_run():
     except Exception as e:
         print(f"[API PREDICTION ERROR] {e}")
         return jsonify({"error": str(e)}), 500
+
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=False, use_reloader=False)

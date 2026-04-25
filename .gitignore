@@ -20,3 +20,13 @@ Thumbs.db
 *.tar
 .env.macmini
 tomAI_datasets/
+
+smartfarm/dl/models/*.pt
+smartfarm/dl/video/
+smartfarm/dl/output/
+runs/
+
+# 대용량 파일
+*.mp4
+*.zip
+*.pt
