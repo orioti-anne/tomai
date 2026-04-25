@@ -129,6 +129,8 @@ def index():
 
 @bp.route('/analyze/<int:cult_id>', methods=['POST'])
 def analyze(cult_id):
+    if not g.user:
+        return jsonify({"error": "로그인이 필요합니다"}), 401
     try:
         shot_type = request.form.get('shot_type', 'wide')
         if 'image' not in request.files:
