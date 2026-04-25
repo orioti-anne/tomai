@@ -211,77 +211,95 @@ _disease_model = YOLO(os.path.join(_DL_DIR, 'disease_best.pt'))
 _quality_model  = YOLO(os.path.join(_DL_DIR, 'quality_best.pt'))
 _seg_model      = YOLO(os.path.join(_DL_DIR, 'seg_best.pt'))
 
-def _run_vision(image, shot_type):
-    """이미지 분석 후 통계 반환"""
+
+def _run_vision(image_or_video, shot_type):
+    """영상 전체 프레임 분석 후 집계 반환"""
+    import tempfile, os
+
+    # 파일로 저장 후 VideoCapture로 열기
+    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+        tmp.write(image_or_video)
+        tmp_path = tmp.name
+
+    cap = cv2.VideoCapture(tmp_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # 집계용
+    quality_total = {}
+    disease_total = {}
+    disease_conf = {}
+    seg_total = {}
+
+    frame_count = 0
+    analyzed = 0
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame_count += 1
+        if frame_count % 15 != 0:  # 15프레임마다 분석
+            continue
+        analyzed += 1
+
+        if shot_type in ('wide', 'zoom'):
+            # 품질 모델
+            q = _quality_model(frame, conf=0.5, verbose=False)[0]
+            for box in q.boxes:
+                cls = q.names[int(box.cls)]
+                quality_total[cls] = quality_total.get(cls, 0) + 1
+
+        if shot_type == 'zoom':
+            # 질병 모델
+            d = _disease_model(frame, conf=0.5, verbose=False)[0]
+            for box in d.boxes:
+                cls = d.names[int(box.cls)]
+                if cls == 'Healthy':
+                    continue
+                disease_total[cls] = disease_total.get(cls, 0) + 1
+                disease_conf.setdefault(cls, []).append(float(box.conf))
+
+            # 세그 모델
+            s = _seg_model(frame, conf=0.4, verbose=False)[0]
+            if s.masks is not None:
+                for box, mask in zip(s.boxes, s.masks):
+                    cls = s.names[int(box.cls)]
+                    area = int(mask.data.sum().item())
+                    seg_total.setdefault(cls, []).append(area)
+
+    cap.release()
+    os.unlink(tmp_path)
+
+    # 집계 결과 정리
     results = {}
+    q_total = sum(quality_total.values()) or 1
+    results['quality'] = [
+        {'class_name': k, 'count': v, 'ratio': round(v / q_total * 100, 2)}
+        for k, v in quality_total.items()
+    ]
 
-    # wide: 품질 모델만
-    if shot_type == 'wide':
-        q = _quality_model(image, conf=0.5, verbose=False)[0]
-        quality_count = {}
-        for box in q.boxes:
-            cls = q.names[int(box.cls)]
-            quality_count[cls] = quality_count.get(cls, 0) + 1
-        total = sum(quality_count.values())
-        results['quality'] = [
-            {'class_name': k, 'count': v, 'ratio': round(v / total * 100, 2)}
-            for k, v in quality_count.items()
-        ]
+    results['disease'] = [
+        {'class_name': k, 'count': v,
+         'avg_conf': round(sum(disease_conf[k]) / len(disease_conf[k]), 3)}
+        for k, v in disease_total.items()
+    ]
 
-    # zoom: 질병 + 세그 + 품질 모델
-    elif shot_type == 'zoom':
-        # 질병
-        d = _disease_model(image, conf=0.5, verbose=False)[0]
-        disease_dict = {}
-        conf_dict = {}
-        for box in d.boxes:
-            cls = d.names[int(box.cls)]
-            if cls == 'Healthy':
-                continue
-            disease_dict[cls] = disease_dict.get(cls, 0) + 1
-            conf_dict.setdefault(cls, []).append(float(box.conf))
-        results['disease'] = [
-            {'class_name': k, 'count': v, 'avg_conf': round(sum(conf_dict[k]) / len(conf_dict[k]), 3)}
-            for k, v in disease_dict.items()
-        ]
+    red_areas = seg_total.get('tom_fruit_red_poly', [])
+    red_avg = sum(red_areas) / len(red_areas) if red_areas else None
+    results['segment'] = []
+    for cls, areas in seg_total.items():
+        avg_area = sum(areas) / len(areas)
+        avg_growth = round(avg_area / red_avg * 100, 2) if red_avg else None
+        results['segment'].append({
+            'class_name': cls,
+            'count': len(areas),
+            'avg_area': round(avg_area, 2),
+            'avg_growth': avg_growth
+        })
 
-        # 품질
-        q = _quality_model(image, conf=0.5, verbose=False)[0]
-        quality_count = {}
-        for box in q.boxes:
-            cls = q.names[int(box.cls)]
-            quality_count[cls] = quality_count.get(cls, 0) + 1
-        total = sum(quality_count.values()) or 1
-        results['quality'] = [
-            {'class_name': k, 'count': v, 'ratio': round(v / total * 100, 2)}
-            for k, v in quality_count.items()
-        ]
-
-        # 세그
-        s = _seg_model(image, conf=0.4, verbose=False)[0]
-        seg_dict = {}
-        if s.masks is not None:
-            for box, mask in zip(s.boxes, s.masks):
-                cls = s.names[int(box.cls)]
-                area = int(mask.data.sum().item())
-                seg_dict.setdefault(cls, []).append(area)
-
-        red_areas = seg_dict.get('tom_fruit_red_poly', [])
-        red_avg = sum(red_areas) / len(red_areas) if red_areas else None
-
-        results['segment'] = []
-        for cls, areas in seg_dict.items():
-            avg_area = sum(areas) / len(areas)
-            avg_growth = round(avg_area / red_avg * 100, 2) if red_avg else None
-            results['segment'].append({
-                'class_name': cls,
-                'count': len(areas),
-                'avg_area': round(avg_area, 2),
-                'avg_growth': avg_growth
-            })
-
+    results['analyzed_frames'] = analyzed
+    results['total_frames'] = total_frames
     return results
-
 
 @app.route("/api/vision/analyze/<int:cult_id>", methods=["POST"])
 def api_vision_analyze(cult_id):
@@ -291,11 +309,8 @@ def api_vision_analyze(cult_id):
             return jsonify({"error": "이미지가 없습니다"}), 400
 
         file = request.files['image']
-        img_array = np.frombuffer(file.read(), np.uint8)
-        image = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
-
-        # 분석
-        vision_results = _run_vision(image, shot_type)
+        image_or_video = file.read()  # bytes로 읽기
+        vision_results = _run_vision(image_or_video, shot_type)
 
         # DB 저장
         from sqlalchemy import text
