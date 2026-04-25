@@ -247,7 +247,7 @@ async function analyzeVision(type) {
     formData.append('image', file);
 
     try {
-        const res = await fetch(`vision/analyze/${selectedCultId}`, {
+        const res = await fetch(`/vision/analyze/${selectedCultId}`, {
             method: 'POST',
             body: formData
         });
