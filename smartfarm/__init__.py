@@ -30,7 +30,8 @@ def create_app(enable_scheduler: bool = True):
         growth_views,
         env_control_views,
         dashboard_views,
-        display_api
+        display_api,
+        vision_views
     )
 
     app.register_blueprint(main_views.bp)
@@ -45,6 +46,7 @@ def create_app(enable_scheduler: bool = True):
     app.register_blueprint(env_control_views.bp)
     app.register_blueprint(dashboard_views.bp)
     app.register_blueprint(display_api.bp)
+    app.register_blueprint(vision_views.bp)
 
     if enable_scheduler:
         if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
