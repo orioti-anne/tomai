@@ -22,7 +22,7 @@ API_SECRET = os.getenv("API_SECRET", "tomai-internal-secret")
 def check_api_key():
     if request.path == "/health":
         return
-    if request.path.startswith("/api/vision/"):
+    if request.path.startswith("/vision/"):
         return
     key = request.headers.get("X-API-Key")
     if key != API_SECRET:
