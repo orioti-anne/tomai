@@ -317,10 +317,15 @@ def api_vision_analyze(cult_id):
         with db.engine.begin() as conn:
             # 세션 생성
             row = conn.execute(text("""
-                INSERT INTO vision_session (cult_id, shot_type, total_frames)
-                VALUES (:cult_id, :shot_type, 1)
+                INSERT INTO vision_session (cult_id, shot_type, total_frames, image_path)
+                VALUES (:cult_id, :shot_type, :total_frames, :image_path)
                 RETURNING session_id
-            """), {'cult_id': cult_id, 'shot_type': shot_type})
+            """), {
+                'cult_id': cult_id,
+                'shot_type': shot_type,
+                'total_frames': vision_results.get('total_frames', 0),
+                'image_path': file.filename
+            })
             session_id = row.fetchone()[0]
 
             # 품질 저장
