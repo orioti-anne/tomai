@@ -228,7 +228,7 @@ def _run_vision(image, shot_type):
             for k, v in quality_count.items()
         ]
 
-    # zoom: 질병 + 세그 모델
+    # zoom: 질병 + 세그 + 품질 모델
     elif shot_type == 'zoom':
         # 질병
         d = _disease_model(image, conf=0.5, verbose=False)[0]
@@ -243,6 +243,18 @@ def _run_vision(image, shot_type):
         results['disease'] = [
             {'class_name': k, 'count': v, 'avg_conf': round(sum(conf_dict[k]) / len(conf_dict[k]), 3)}
             for k, v in disease_dict.items()
+        ]
+
+        # 품질
+        q = _quality_model(image, conf=0.5, verbose=False)[0]
+        quality_count = {}
+        for box in q.boxes:
+            cls = q.names[int(box.cls)]
+            quality_count[cls] = quality_count.get(cls, 0) + 1
+        total = sum(quality_count.values()) or 1
+        results['quality'] = [
+            {'class_name': k, 'count': v, 'ratio': round(v / total * 100, 2)}
+            for k, v in quality_count.items()
         ]
 
         # 세그
