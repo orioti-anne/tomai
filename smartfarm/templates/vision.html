@@ -3,13 +3,28 @@
 {% block content %}
 <div class="space-y-6">
 
-    <!-- 상단 헤더 -->
-    <div>
-        <h2 class="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-            <i data-lucide="scan-eye" class="w-6 h-6 text-green-600"></i>
-            AI Vision
-        </h2>
-        <p class="text-slate-500 mt-1">영상을 업로드하여 과실 상태를 AI로 분석합니다.</p>
+    <!-- 상단 헤더 + 재배 선택 -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+                <i data-lucide="scan-eye" class="w-6 h-6 text-green-600"></i>
+                AI Vision
+            </h2>
+            <p class="text-slate-500 mt-1">영상을 업로드하여 과실 상태를 AI로 분석합니다.</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <label class="text-sm font-semibold text-slate-600 whitespace-nowrap">재배명</label>
+            <select id="cultSelect" onchange="onCultChange(this.value)"
+                class="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-2.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                {% for cult in cult_list %}
+                    <option value="{{ cult.cult_id }}"
+                        {% if selected_cult and cult.cult_id == selected_cult.cult_id %}selected{% endif %}>
+                        {{ cult.cult_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
 
     <!-- 2분할 메인 영역 -->
@@ -18,20 +33,6 @@
         <!-- 좌측: 설정 & 업로드 -->
         <div class="xl:col-span-1">
             <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 space-y-5 sticky top-24">
-
-                <!-- 재배 선택 -->
-                <div>
-                    <label class="block text-xs text-slate-400 font-bold mb-2">재배 선택</label>
-                    <select id="cultSelect" onchange="onCultChange(this.value)"
-                        class="w-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 rounded-xl px-4 py-3 outline-none focus:border-green-400 transition-colors">
-                        {% for cult in cult_list %}
-                            <option value="{{ cult.cult_id }}"
-                                {% if selected_cult and cult.cult_id == selected_cult.cult_id %}selected{% endif %}>
-                                {{ cult.cult_name }}
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
 
                 <!-- 구역명 -->
                 <div>
@@ -51,12 +52,12 @@
                         <button id="btnWide" onclick="setShotType('wide')"
                             class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600">
                             <i data-lucide="video" class="w-4 h-4"></i>
-                            구역별
+                            구역 wide
                         </button>
                         <button id="btnZoom" onclick="setShotType('zoom')"
                             class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500">
                             <i data-lucide="zoom-in" class="w-4 h-4"></i>
-                            근접
+                            근접 zoom
                         </button>
                     </div>
                 </div>
@@ -101,34 +102,29 @@
                     <span id="videoStatus" class="ml-auto text-xs text-slate-400"></span>
                 </div>
 
-                <!-- 대기 상태 -->
                 <div id="videoPlaceholder" class="aspect-video bg-slate-50 flex flex-col items-center justify-center">
                     <i data-lucide="video-off" class="w-12 h-12 text-slate-200 mb-3"></i>
                     <p class="text-sm text-slate-400 font-medium">영상을 업로드하고 분석을 시작하세요</p>
                 </div>
 
-                <!-- 분석 로딩 -->
                 <div id="analysisLoading" class="hidden aspect-video bg-slate-50 flex flex-col items-center justify-center">
                     <div class="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4"></div>
                     <p class="text-sm font-bold text-slate-700">영상 분석 중...</p>
                     <p class="text-xs text-slate-400 mt-1">잠시만 기다려주세요</p>
                 </div>
 
-                <!-- 영상 생성 로딩 -->
                 <div id="videoGenerating" class="hidden aspect-video bg-slate-900 flex flex-col items-center justify-center">
                     <div class="w-12 h-12 border-4 border-green-400 border-t-transparent rounded-full animate-spin mb-4"></div>
                     <p class="text-sm font-bold text-white">🎬 AI Vision 영상 생성 중...</p>
                     <p class="text-xs text-slate-400 mt-1">분석 결과를 영상에 적용하고 있습니다</p>
                 </div>
 
-                <!-- 영상 플레이어 -->
                 <div id="videoPlayer" class="hidden">
                     <video id="resultVideo" controls class="w-full aspect-video bg-black">
                         <source id="videoSource" src="" type="video/mp4">
                     </video>
                 </div>
 
-                <!-- 영상 삭제됨 -->
                 <div id="videoDeleted" class="hidden aspect-video bg-slate-50 flex flex-col items-center justify-center">
                     <i data-lucide="trash-2" class="w-10 h-10 text-slate-300 mb-3"></i>
                     <p class="text-sm font-bold text-slate-500">영상이 삭제되었습니다</p>
@@ -168,7 +164,7 @@
                             <div class="w-8 h-8 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500">
                                 <i data-lucide="pie-chart" class="w-4 h-4"></i>
                             </div>
-                            <h4 class="text-sm font-bold text-slate-800">숙성 분류</h4>
+                            <h4 class="text-sm font-bold text-slate-800">숙성 분류별 평균 크기 (완숙 대비)</h4>
                         </div>
                         <div style="height:140px">
                             <canvas id="segmentChart"></canvas>
@@ -225,10 +221,10 @@ const QUALITY_LABEL = {
 };
 
 const QUALITY_COLOR_MAP = {
-    'unripe':    '#32cd32',
-    'half_ripe': '#ec4899',
-    'ripe':      '#dc143c',
-    'rotten':    '#3c3c3c',
+    'unripe':          '#32cd32',
+    'half_ripe':       '#ffa500',
+    'ripe':            '#dc143c',
+    'rotten':          '#3c3c3c',
     'blossom_end_rot': '#964b00',
     'fruit_cracking':  '#8b00ff',
     'sunscald':        '#ffd700',
@@ -237,11 +233,16 @@ const QUALITY_COLOR_MAP = {
 
 const SEG_LABEL = {
     'tom_fruit_breaker_poly': 'Green',
-    'tom_fruit_pink_poly': 'Pink',
-    'tom_fruit_red_poly': 'Red'
+    'tom_fruit_pink_poly':    'Pink',
+    'tom_fruit_red_poly':     'Red'
 };
 
-const SEG_COLORS = ['#32cd32','#ec4899','#ef4444'];
+const SEG_COLORS = ['#32cd32', '#ec4899', '#ef4444'];
+const SEG_NAME_MAP = {
+    'tom_fruit_breaker_poly': 'Green',
+    'tom_fruit_pink_poly':    'Pink',
+    'tom_fruit_red_poly':     'Red'
+};
 
 function onCultChange(val) {
     selectedCultId = val;
@@ -270,7 +271,7 @@ function handleFile(input) {
     videoFile = file;
     document.getElementById('fileName').classList.remove('hidden');
     document.getElementById('fileNameText').textContent = file.name;
-    document.getElementById('dropZone').classList.add('border-green-400','bg-green-50');
+    document.getElementById('dropZone').classList.add('border-green-400', 'bg-green-50');
 }
 
 function handleDrop(event) {
@@ -316,15 +317,11 @@ async function analyzeVision() {
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        // 분석 결과 바로 표시
         renderResult(data);
         loadHistory();
 
-        // 영상 생성 로딩 시작
         showVideoState('videoGenerating');
         document.getElementById('videoStatus').textContent = '영상 생성 중...';
-
-        // 폴링 시작
         startPolling(data.session_id);
 
     } catch (err) {
@@ -372,7 +369,7 @@ function renderResult(data) {
             options: {
                 responsive: true, maintainAspectRatio: true, cutout: '70%',
                 plugins: { legend: { display: false }, tooltip: {
-                    callbacks: { label: (ctx) => `vs. Red ${ctx.raw}%` }
+                    callbacks: { label: ctx => ` ${ctx.label}: ${quality[ctx.dataIndex].ratio}%` }
                 }}
             }
         });
@@ -393,22 +390,22 @@ function renderResult(data) {
     if (segment.length > 0) {
         document.getElementById('segmentResult').classList.remove('hidden');
         const segLabels = segment.map(s => SEG_LABEL[s.class_name] || s.class_name);
-        const segCounts = segment.map(s => s.avg_growth || 0);
-        const segGrowth = segment.map(s => s.avg_growth || 0);
+        const segData = segment.map(s => s.avg_growth || 0);
         const segColors = segment.map((_, i) => SEG_COLORS[i % SEG_COLORS.length]);
 
         if (segmentChartInstance) segmentChartInstance.destroy();
         segmentChartInstance = new Chart(document.getElementById('segmentChart'), {
             type: 'bar',
-            data: { labels: segLabels, datasets: [{ data: segCounts, backgroundColor: segColors, borderRadius: 8, borderSkipped: false, maxBarThickness: 48 }] },
+            data: { labels: segLabels, datasets: [{ data: segData, backgroundColor: segColors, borderRadius: 8, borderSkipped: false, maxBarThickness: 48 }] },
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { display: false }, tooltip: {
-                    callbacks: { label: (ctx) => `vs. Red ${ctx.raw}%` }
+                    callbacks: { label: ctx => `vs. Red ${ctx.raw}%` }
                 }},
                 scales: {
                     x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#64748b' } },
-                    y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', callback: value => `${value}%` }, beginAtZero: true }                   }
+                    y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', callback: value => `${value}%` }, beginAtZero: true }
+                }
             }
         });
     }
@@ -464,12 +461,11 @@ async function loadHistory() {
     } catch(e) {}
 }
 
-function playHistoryVideo(sessionId, videoUrl) {
-    if (!videoUrl) {
+function playHistoryVideo(sessionId, videoPath) {
+    if (!videoPath) {
         showVideoState('videoDeleted');
         return;
     }
-    // 영상 존재 여부 확인 후 재생
     fetch(`/vision/video-status/${sessionId}`)
         .then(r => r.json())
         .then(data => {
@@ -483,8 +479,6 @@ function playHistoryVideo(sessionId, videoUrl) {
         });
 }
 
-
-
 function renderHistory(history) {
     const el = document.getElementById('historyContent');
     if (history.length === 0) {
@@ -492,42 +486,43 @@ function renderHistory(history) {
         return;
     }
     el.innerHTML = `
-        <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+        <div class="overflow-x-auto -mx-2">
+            <table class="w-full text-sm min-w-[640px]">
                 <thead>
                     <tr class="text-xs text-slate-400 font-bold border-b border-slate-100">
-                        <th class="text-left py-3 pr-4">분석일시</th>
-                        <th class="text-left py-3 pr-4">구역명</th>
-                        <th class="text-left py-3 pr-4">유형</th>
-                        <th class="text-left py-3 pr-4">품질 결과</th>
-                        <th class="text-left py-3 pr-4">잎 질병</th>
-                        <th class="text-left py-3 pr-4">분류별 평균 사이즈(완숙 대비)</th>
-                        <th class="text-left py-3">영상</th>
+                        <th class="text-left py-3 px-2">분석일시</th>
+                        <th class="text-left py-3 px-2">구역</th>
+                        <th class="text-left py-3 px-2">유형</th>
+                        <th class="text-left py-3 px-2">품질 결과</th>
+                        <th class="text-left py-3 px-2">질병</th>
+                        <th class="text-left py-3 px-2">크기 (완숙 대비)</th>
+                        <th class="text-left py-3 px-2">영상</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
                     ${history.map(h => `
                         <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="py-3 pr-4 font-medium text-slate-700 whitespace-nowrap">${h.analyzed_at}</td>
-                            <td class="py-3 pr-4 text-slate-600">${h.zone_name || '-'}</td>
-                            <td class="py-3 pr-4">
+                            <td class="py-3 px-2 font-medium text-slate-700 whitespace-nowrap text-xs">${h.analyzed_at}</td>
+                            <td class="py-3 px-2 text-slate-600 text-xs">${h.zone_name || '-'}</td>
+                            <td class="py-3 px-2">
                                 <span class="px-2 py-1 rounded-full text-xs font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':'bg-purple-50 text-purple-600'}">
                                     ${h.shot_type==='wide'?'Wide':'Zoom'}
                                 </span>
                             </td>
-                            <td class="py-3 pr-4 text-slate-600 text-xs">
-                                ${h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join(', ') : '-'}
+                            <td class="py-3 px-2 text-slate-600 text-xs max-w-[180px]">
+                                ${h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join('<br>') : '-'}
                             </td>
-                            <td class="py-3 pr-4">
+                            <td class="py-3 px-2 text-xs">
                                 ${h.shot_type === 'zoom'
                                     ? (h.disease && h.disease.length > 0
-                                        ? `<span class="text-red-500 font-bold text-xs">${h.disease.length}종 감지</span>`
-                                        : '<span class="text-green-600 font-bold text-xs">이상없음</span>')
-                                    : '<span class="text-slate-400 text-xs">-</span>'}
+                                        ? `<span class="text-red-500 font-bold">${h.disease.length}종 감지</span>`
+                                        : '<span class="text-green-600 font-bold">이상없음</span>')
+                                    : '<span class="text-slate-400">-</span>'}
                             </td>
-                            <td class="py-3 pr-4 text-slate-600 text-xs">
-                                ${h.segment ? h.segment.map(s=>`${({"tom_fruit_breaker_poly":"Green","tom_fruit_pink_poly":"Pink","tom_fruit_red_poly":"Red"})[s.class_name]||s.class_name} (${s.avg_growth||0}%)`).join(', ') : '-'}                            </td>
-                            <td class="py-3">
+                            <td class="py-3 px-2 text-slate-600 text-xs">
+                                ${h.segment ? h.segment.map(s=>`${SEG_NAME_MAP[s.class_name]||s.class_name} (${s.avg_growth||0}%)`).join('<br>') : '-'}
+                            </td>
+                            <td class="py-3 px-2">
                                 <button onclick="playHistoryVideo(${h.session_id}, '${h.video_path||''}')"
                                     class="flex items-center gap-1 text-xs font-bold ${h.video_path?'text-green-600 hover:text-green-700':'text-slate-300 cursor-default'} transition-colors">
                                     <i data-lucide="${h.video_path?'play-circle':'video-off'}" class="w-4 h-4"></i>
