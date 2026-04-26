@@ -52,19 +52,19 @@
                         <button id="btnWide" onclick="setShotType('wide')"
                             class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600">
                             <i data-lucide="video" class="w-4 h-4"></i>
-                            구역 wide
+                            구역별
                         </button>
                         <button id="btnZoom" onclick="setShotType('zoom')"
                             class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500">
                             <i data-lucide="zoom-in" class="w-4 h-4"></i>
-                            근접 zoom
+                            근접
                         </button>
                     </div>
                 </div>
 
                 <!-- 업로드 -->
                 <div>
-                    <label class="block text-xs text-slate-400 font-bold mb-2">영상 업로드</label>
+                    <label class="block text-xs text-slate-400 font-bold mb-2">파일 업로드</label>
                     <div id="dropZone"
                         class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all"
                         onclick="document.getElementById('videoInput').click()"
@@ -92,31 +92,31 @@
         <!-- 우측: 결과 영역 -->
         <div class="lg:col-span-2 space-y-5">
 
-            <!-- 영상 플레이어 영역 -->
+            <!-- 영상/이미지 플레이어 영역 -->
             <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
                 <div class="px-6 py-4 border-b border-slate-50 flex items-center gap-3">
                     <div class="w-8 h-8 bg-slate-50 rounded-xl flex items-center justify-center text-slate-500">
                         <i data-lucide="clapperboard" class="w-4 h-4"></i>
                     </div>
-                    <h4 class="text-sm font-bold text-slate-800">AI Vision 영상</h4>
+                    <h4 class="text-sm font-bold text-slate-800">AI Vision 결과</h4>
                     <span id="videoStatus" class="ml-auto text-xs text-slate-400"></span>
                 </div>
 
                 <div id="videoPlaceholder" class="aspect-video bg-slate-50 flex flex-col items-center justify-center">
                     <i data-lucide="video-off" class="w-12 h-12 text-slate-200 mb-3"></i>
-                    <p class="text-sm text-slate-400 font-medium">영상을 업로드하고 분석을 시작하세요</p>
+                    <p class="text-sm text-slate-400 font-medium">파일을 업로드하고 분석을 시작하세요</p>
                 </div>
 
                 <div id="analysisLoading" class="hidden aspect-video bg-slate-50 flex flex-col items-center justify-center">
                     <div class="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4"></div>
-                    <p class="text-sm font-bold text-slate-700">영상 분석 중...</p>
+                    <p class="text-sm font-bold text-slate-700">분석 중...</p>
                     <p class="text-xs text-slate-400 mt-1">잠시만 기다려주세요</p>
                 </div>
 
                 <div id="videoGenerating" class="hidden aspect-video bg-slate-900 flex flex-col items-center justify-center">
                     <div class="w-12 h-12 border-4 border-green-400 border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p class="text-sm font-bold text-white">🎬 AI Vision 영상 생성 중...</p>
-                    <p class="text-xs text-slate-400 mt-1">분석 결과를 영상에 적용하고 있습니다</p>
+                    <p class="text-sm font-bold text-white">🎬 AI Vision 생성 중...</p>
+                    <p class="text-xs text-slate-400 mt-1">분석 결과를 적용하고 있습니다</p>
                 </div>
 
                 <div id="videoPlayer" class="hidden">
@@ -124,15 +124,15 @@
                         <source id="videoSource" src="" type="video/mp4">
                     </video>
                 </div>
-                <!-- 이미지 뷰어 -->
+
                 <div id="imagePlayer" class="hidden">
                     <img id="resultImage" src="" class="w-full aspect-video object-contain bg-black">
                 </div>
 
                 <div id="videoDeleted" class="hidden aspect-video bg-slate-50 flex flex-col items-center justify-center">
                     <i data-lucide="trash-2" class="w-10 h-10 text-slate-300 mb-3"></i>
-                    <p class="text-sm font-bold text-slate-500">영상이 삭제되었습니다</p>
-                    <p class="text-xs text-slate-400 mt-1">보관 기간(30일)이 지난 영상입니다</p>
+                    <p class="text-sm font-bold text-slate-500">파일이 삭제되었습니다</p>
+                    <p class="text-xs text-slate-400 mt-1">보관 기간(30일)이 지난 파일입니다</p>
                 </div>
             </div>
 
@@ -146,7 +146,6 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                    <!-- 품질 도넛 차트 -->
                     <div id="qualityResult" class="hidden bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
                         <div class="flex items-center gap-3 mb-5">
                             <div class="w-8 h-8 bg-green-50 rounded-xl flex items-center justify-center text-green-600">
@@ -162,7 +161,6 @@
                         </div>
                     </div>
 
-                    <!-- 숙성 바 차트 -->
                     <div id="segmentResult" class="hidden bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
                         <div class="flex items-center gap-3 mb-5">
                             <div class="w-8 h-8 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500">
@@ -177,7 +175,6 @@
 
                 </div>
 
-                <!-- 질병 -->
                 <div id="diseaseResult" class="hidden bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center text-red-500">
@@ -216,6 +213,7 @@ let shotType = 'wide';
 let qualityChartInstance = null;
 let segmentChartInstance = null;
 let pollingTimer = null;
+let historyData = [];
 
 const QUALITY_LABEL = {
     'unripe': '미숙과', 'half_ripe': '반숙', 'ripe': '완숙',
@@ -242,6 +240,7 @@ const SEG_LABEL = {
 };
 
 const SEG_COLORS = ['#32cd32', '#ec4899', '#ef4444'];
+
 const SEG_NAME_MAP = {
     'tom_fruit_breaker_poly': 'Green',
     'tom_fruit_pink_poly':    'Pink',
@@ -292,22 +291,23 @@ function handleDrop(event) {
 function showVideoState(state, url, isImage=false) {
     const states = ['videoPlaceholder','analysisLoading','videoGenerating','videoPlayer','imagePlayer','videoDeleted'];
     states.forEach(s => document.getElementById(s).classList.add('hidden'));
-    document.getElementById(state).classList.remove('hidden');
     if (state === 'videoPlayer' && url) {
         if (isImage) {
             document.getElementById('imagePlayer').classList.remove('hidden');
-            document.getElementById('videoPlayer').classList.add('hidden');
             document.getElementById('resultImage').src = url;
         } else {
+            document.getElementById('videoPlayer').classList.remove('hidden');
             document.getElementById('videoSource').src = url;
             document.getElementById('resultVideo').load();
         }
+    } else {
+        document.getElementById(state).classList.remove('hidden');
     }
 }
 
 async function analyzeVision() {
     if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
-    if (!videoFile) { alert('영상 파일을 업로드해주세요.'); return; }
+    if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
 
     showVideoState('analysisLoading');
     document.getElementById('resultSection').classList.add('hidden');
@@ -331,7 +331,7 @@ async function analyzeVision() {
         loadHistory();
 
         showVideoState('videoGenerating');
-        document.getElementById('videoStatus').textContent = '영상 생성 중...';
+        document.getElementById('videoStatus').textContent = '생성 중...';
         startPolling(data.session_id);
 
     } catch (err) {
@@ -347,7 +347,7 @@ function startPolling(sessionId) {
             const data = await res.json();
             if (data.status === 'ready') {
                 clearInterval(pollingTimer);
-                showVideoState('videoPlayer', data.video_url, data.is_image);  // ← is_image 추가
+                showVideoState('videoPlayer', data.video_url, data.is_image);
                 document.getElementById('videoStatus').textContent = '분석 완료';
                 loadHistory();
             } else if (data.status === 'deleted') {
@@ -358,13 +358,22 @@ function startPolling(sessionId) {
     }, 5000);
 }
 
+function clearResults() {
+    document.getElementById('resultSection').classList.add('hidden');
+    document.getElementById('qualityResult').classList.add('hidden');
+    document.getElementById('segmentResult').classList.add('hidden');
+    document.getElementById('diseaseResult').classList.add('hidden');
+    document.getElementById('diseaseContent').innerHTML = '';
+    if (qualityChartInstance) { qualityChartInstance.destroy(); qualityChartInstance = null; }
+    if (segmentChartInstance) { segmentChartInstance.destroy(); segmentChartInstance = null; }
+}
+
 function renderResult(data) {
     const results = data.results;
     document.getElementById('resultSection').classList.remove('hidden');
     document.getElementById('resultMeta').textContent =
-        `총 ${results.total_frames||0}프레임 중 ${results.analyzed_frames||0}프레임 분석`;
+        results.total_frames ? `총 ${results.total_frames}프레임 중 ${results.analyzed_frames}프레임 분석` : '';
 
-    // 품질 도넛 차트
     const quality = results.quality || [];
     if (quality.length > 0) {
         document.getElementById('qualityResult').classList.remove('hidden');
@@ -395,7 +404,6 @@ function renderResult(data) {
         `).join('');
     }
 
-    // 숙성 바 차트
     const segment = results.segment || [];
     if (segment.length > 0) {
         document.getElementById('segmentResult').classList.remove('hidden');
@@ -420,7 +428,6 @@ function renderResult(data) {
         });
     }
 
-    // 질병
     const disease = results.disease || [];
     if (disease.length > 0) {
         document.getElementById('diseaseResult').classList.remove('hidden');
@@ -480,43 +487,19 @@ function playHistoryVideo(sessionId, videoPath) {
         .then(r => r.json())
         .then(data => {
             if (data.status === 'ready') {
-                showVideoState('videoPlayer', data.video_url, data.is_image);  // ← is_image 추가
+                showVideoState('videoPlayer', data.video_url, data.is_image);
                 document.getElementById('videoStatus').textContent = '이력 재생 중';
-                window.scrollTo({ top: 0, behavior: 'smooth' });
             } else {
                 showVideoState('videoDeleted');
             }
         });
 }
 
-function onCultChange(val) {
-    selectedCultId = val;
-    loadHistory();
-    loadZones();
-}
-
 function loadHistoryDetail(sessionId) {
     const h = historyData.find(x => x.session_id === sessionId);
     if (!h) return;
 
-    // 이전 결과 초기화
-    document.getElementById('resultSection').classList.add('hidden');
-    document.getElementById('qualityResult').classList.add('hidden');
-    document.getElementById('segmentResult').classList.add('hidden');
-    document.getElementById('diseaseResult').classList.add('hidden');
-    document.getElementById('diseaseContent').innerHTML = '';
-    if (qualityChartInstance) { qualityChartInstance.destroy(); qualityChartInstance = null; }
-    if (segmentChartInstance) { segmentChartInstance.destroy(); segmentChartInstance = null; }
-
-    playHistoryVideo(h.session_id, h.video_path);
-    renderResult({...});
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function loadHistoryDetail(sessionId) {
-    const h = historyData.find(x => x.session_id === sessionId);
-    if (!h) return;
-
+    clearResults();
     playHistoryVideo(h.session_id, h.video_path);
     renderResult({
         shot_type: h.shot_type,
@@ -530,8 +513,6 @@ function loadHistoryDetail(sessionId) {
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
-let historyData = [];
 
 function renderHistory(history) {
     historyData = history;
@@ -552,12 +533,12 @@ function renderHistory(history) {
                         <th class="text-left py-3 px-2">품질 결과</th>
                         <th class="text-left py-3 px-2">질병</th>
                         <th class="text-left py-3 px-2">크기 (완숙 대비)</th>
-                        <th class="text-left py-3 px-2">추론 미디어</th>
+                        <th class="text-left py-3 px-2">미디어</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
                     ${history.map(h => `
-                            <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
+                        <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
                             <td class="py-3 px-2 font-medium text-slate-700 whitespace-nowrap text-xs">${h.analyzed_at}</td>
                             <td class="py-3 px-2 text-slate-600 text-xs">${h.zone_name || '-'}</td>
                             <td class="py-3 px-2">
@@ -579,11 +560,9 @@ function renderHistory(history) {
                                 ${h.segment ? h.segment.map(s=>`${SEG_NAME_MAP[s.class_name]||s.class_name} (${s.avg_growth||0}%)`).join('<br>') : '-'}
                             </td>
                             <td class="py-3 px-2">
-                                <button onclick="playHistoryVideo(${h.session_id}, '${h.video_path||''}')"
-                                    class="flex items-center gap-1 text-xs font-bold ${h.video_path?'text-green-600 hover:text-green-700':'text-slate-300 cursor-default'} transition-colors">
+                                <span class="text-xs ${h.video_path?'text-green-600':'text-slate-300'}">
                                     <i data-lucide="${h.video_path?'play-circle':'video-off'}" class="w-4 h-4"></i>
-                                    ${h.video_path?'재생':'없음'}
-                                </button>
+                                </span>
                             </td>
                         </tr>
                     `).join('')}
@@ -594,12 +573,15 @@ function renderHistory(history) {
         <!-- 모바일 카드 -->
         <div class="md:hidden space-y-3">
             ${history.map(h => `
-                <div class="bg-slate-50 rounded-2xl p-4 space-y-3">
+                <div class="bg-slate-50 rounded-2xl p-4 space-y-3 cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
                     <div class="flex items-center justify-between">
                         <span class="text-xs text-slate-400">${h.analyzed_at}</span>
-                        <span class="px-2 py-1 rounded-full text-xs font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':'bg-purple-50 text-purple-600'}">
-                            ${h.shot_type==='wide'?'Wide':'Zoom'}
-                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-1 rounded-full text-xs font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':'bg-purple-50 text-purple-600'}">
+                                ${h.shot_type==='wide'?'Wide':'Zoom'}
+                            </span>
+                            ${h.video_path ? '<i data-lucide="play-circle" class="w-4 h-4 text-green-600"></i>' : ''}
+                        </div>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="text-xs text-slate-400">구역</span>
@@ -609,20 +591,13 @@ function renderHistory(history) {
                         <span class="text-xs text-slate-400 block mb-1">품질</span>
                         <span class="text-xs text-slate-600">${h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join(' · ') : '-'}</span>
                     </div>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <span class="text-xs text-slate-400 block mb-1">질병</span>
-                            ${h.shot_type === 'zoom'
-                                ? (h.disease && h.disease.length > 0
-                                    ? `<span class="text-red-500 font-bold text-xs">${h.disease.length}종 감지</span>`
-                                    : '<span class="text-green-600 font-bold text-xs">이상없음</span>')
-                                : '<span class="text-slate-400 text-xs">-</span>'}
-                        </div>
-                        <button onclick="playHistoryVideo(${h.session_id}, '${h.video_path||''}')"
-                            class="flex items-center gap-1 text-xs font-bold ${h.video_path?'text-green-600':'text-slate-300 cursor-default'} transition-colors">
-                            <i data-lucide="${h.video_path?'play-circle':'video-off'}" class="w-4 h-4"></i>
-                            ${h.video_path?'재생':'없음'}
-                        </button>
+                    <div>
+                        <span class="text-xs text-slate-400 block mb-1">질병</span>
+                        ${h.shot_type === 'zoom'
+                            ? (h.disease && h.disease.length > 0
+                                ? `<span class="text-red-500 font-bold text-xs">${h.disease.length}종 감지</span>`
+                                : '<span class="text-green-600 font-bold text-xs">이상없음</span>')
+                            : '<span class="text-slate-400 text-xs">-</span>'}
                     </div>
                 </div>
             `).join('')}
