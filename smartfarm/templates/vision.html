@@ -10,96 +10,76 @@
                 <i data-lucide="scan-eye" class="w-6 h-6 text-green-600"></i>
                 AI Vision
             </h2>
-            <p class="text-slate-500 mt-1">영상을 업로드하여 과실 상태를 분석하세요.</p>
-        </div>
-
-        <!-- 재배 선택 -->
-        <div class="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm min-w-[260px]">
-            <label class="block text-xs text-slate-400 font-bold mb-2">재배 선택</label>
-            <select id="cultSelect" onchange="onCultChange(this.value)"
-                class="w-full bg-transparent text-sm font-bold text-slate-700 outline-none">
-                {% for cult in cult_list %}
-                    <option value="{{ cult.cult_id }}"
-                        {% if selected_cult and cult.cult_id == selected_cult.cult_id %}selected{% endif %}>
-                        {{ cult.cult_name }}
-                    </option>
-                {% endfor %}
-            </select>
+            <p class="text-slate-500 mt-1">영상을 업로드하여 과실 상태를 AI로 분석합니다.</p>
         </div>
     </div>
 
-    <!-- 업로드 섹션 -->
-    <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <!-- 업로드 + 설정 섹션 -->
+    <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-        <!-- Wide 업로드 -->
-        <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600">
-                    <i data-lucide="video" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-slate-800">전체 구역 촬영</h3>
-                    <p class="text-xs text-slate-400">품질 · 숙성도 분포 분석</p>
-                </div>
-                <span class="ml-auto text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">Wide</span>
+            <!-- 재배 선택 -->
+            <div>
+                <label class="block text-xs text-slate-400 font-bold mb-2">재배 선택</label>
+                <select id="cultSelect" onchange="onCultChange(this.value)"
+                    class="w-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 rounded-2xl px-4 py-3 outline-none focus:border-green-400 transition-colors">
+                    {% for cult in cult_list %}
+                        <option value="{{ cult.cult_id }}"
+                            {% if selected_cult and cult.cult_id == selected_cult.cult_id %}selected{% endif %}>
+                            {{ cult.cult_name }}
+                        </option>
+                    {% endfor %}
+                </select>
             </div>
 
-            <div id="wideDropZone"
-                class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all"
-                onclick="document.getElementById('wideInput').click()"
-                ondragover="event.preventDefault()" ondrop="handleDrop(event, 'wide')">
-                <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-300 mx-auto mb-3"></i>
+            <!-- 구역명 -->
+            <div>
+                <label class="block text-xs text-slate-400 font-bold mb-2">구역명</label>
+                <input type="text" id="zoneInput" placeholder="예: A구역, 1번 하우스"
+                    class="w-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 rounded-2xl px-4 py-3 outline-none focus:border-green-400 transition-colors">
+            </div>
+
+            <!-- 촬영 유형 -->
+            <div>
+                <label class="block text-xs text-slate-400 font-bold mb-2">촬영 유형</label>
+                <div class="flex gap-3">
+                    <button id="btnWide" onclick="setShotType('wide')"
+                        class="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600">
+                        <i data-lucide="video" class="w-4 h-4"></i>
+                        구역별 촬영
+                    </button>
+                    <button id="btnZoom" onclick="setShotType('zoom')"
+                        class="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500">
+                        <i data-lucide="zoom-in" class="w-4 h-4"></i>
+                        근접 촬영
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 업로드 영역 -->
+        <div class="mt-6">
+            <div id="dropZone"
+                class="border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all"
+                onclick="document.getElementById('videoInput').click()"
+                ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+                <i data-lucide="upload-cloud" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
                 <p class="text-sm font-bold text-slate-500">영상 파일을 드래그하거나 클릭하여 업로드</p>
                 <p class="text-xs text-slate-400 mt-1">mp4, mov 지원</p>
-                <input type="file" id="wideInput" accept="video/*" class="hidden" onchange="handleFile(this, 'wide')">
+                <input type="file" id="videoInput" accept="video/*" class="hidden" onchange="handleFile(this)">
             </div>
 
-            <div id="wideFileName" class="hidden mt-3 text-sm text-slate-600 font-medium flex items-center gap-2">
+            <div id="fileName" class="hidden mt-3 text-sm text-slate-600 font-medium flex items-center gap-2">
                 <i data-lucide="file-video" class="w-4 h-4 text-green-600"></i>
-                <span id="wideFileNameText"></span>
+                <span id="fileNameText"></span>
             </div>
-
-            <button onclick="analyzeVision('wide')"
-                class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-2xl transition-colors flex items-center justify-center gap-2">
-                <i data-lucide="play-circle" class="w-4 h-4"></i>
-                분석 시작
-            </button>
         </div>
 
-        <!-- Zoom 업로드 -->
-        <div class="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-purple-50 rounded-2xl flex items-center justify-center text-purple-600">
-                    <i data-lucide="zoom-in" class="w-5 h-5"></i>
-                </div>
-                <div>
-                    <h3 class="text-base font-bold text-slate-800">근접 촬영</h3>
-                    <p class="text-xs text-slate-400">질병 탐지 · 과실 크기 분석</p>
-                </div>
-                <span class="ml-auto text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1 rounded-full">Zoom</span>
-            </div>
-
-            <div id="zoomDropZone"
-                class="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center cursor-pointer hover:border-green-400 hover:bg-green-50 transition-all"
-                onclick="document.getElementById('zoomInput').click()"
-                ondragover="event.preventDefault()" ondrop="handleDrop(event, 'zoom')">
-                <i data-lucide="upload-cloud" class="w-10 h-10 text-slate-300 mx-auto mb-3"></i>
-                <p class="text-sm font-bold text-slate-500">영상 파일을 드래그하거나 클릭하여 업로드</p>
-                <p class="text-xs text-slate-400 mt-1">mp4, mov 지원</p>
-                <input type="file" id="zoomInput" accept="video/*" class="hidden" onchange="handleFile(this, 'zoom')">
-            </div>
-
-            <div id="zoomFileName" class="hidden mt-3 text-sm text-slate-600 font-medium flex items-center gap-2">
-                <i data-lucide="file-video" class="w-4 h-4 text-purple-600"></i>
-                <span id="zoomFileNameText"></span>
-            </div>
-
-            <button onclick="analyzeVision('zoom')"
-                class="w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-2xl transition-colors flex items-center justify-center gap-2">
-                <i data-lucide="play-circle" class="w-4 h-4"></i>
-                분석 시작
-            </button>
-        </div>
+        <button onclick="analyzeVision()"
+            class="w-full mt-6 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-2xl transition-colors flex items-center justify-center gap-2 text-base">
+            <i data-lucide="play-circle" class="w-5 h-5"></i>
+            분석 시작
+        </button>
     </div>
 
     <!-- 로딩 -->
@@ -119,15 +99,35 @@
             <span id="resultMeta" class="text-xs text-slate-400 font-medium"></span>
         </div>
 
-        <!-- 품질 결과 -->
-        <div id="qualityResult" class="hidden bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
-                    <i data-lucide="cherry" class="w-5 h-5"></i>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+            <!-- 품질 차트 -->
+            <div id="qualityResult" class="hidden bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 bg-green-50 rounded-2xl flex items-center justify-center text-green-600">
+                        <i data-lucide="cherry" class="w-5 h-5"></i>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-800">품질 현황</h4>
                 </div>
-                <h4 class="text-base font-bold text-slate-800">품질 현황</h4>
+                <div class="flex items-center gap-6">
+                    <div class="w-40 h-40 flex-shrink-0">
+                        <canvas id="qualityChart"></canvas>
+                    </div>
+                    <div id="qualityLegend" class="flex-1 space-y-2"></div>
+                </div>
             </div>
-            <div id="qualityContent" class="space-y-3"></div>
+
+            <!-- 숙성 분포 차트 -->
+            <div id="segmentResult" class="hidden bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500">
+                        <i data-lucide="pie-chart" class="w-5 h-5"></i>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-800">숙성 분포</h4>
+                </div>
+                <canvas id="segmentChart" height="160"></canvas>
+            </div>
+
         </div>
 
         <!-- 질병 결과 -->
@@ -141,16 +141,6 @@
             <div id="diseaseContent" class="space-y-3"></div>
         </div>
 
-        <!-- 세그 결과 -->
-        <div id="segmentResult" class="hidden bg-white rounded-[2.5rem] border border-slate-100 shadow-sm p-8">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500">
-                    <i data-lucide="pie-chart" class="w-5 h-5"></i>
-                </div>
-                <h4 class="text-base font-bold text-slate-800">숙성 분포</h4>
-            </div>
-            <div id="segmentContent" class="space-y-3"></div>
-        </div>
     </div>
 
     <!-- 분석 이력 -->
@@ -172,8 +162,10 @@
 {% block script %}
 <script>
 let selectedCultId = {{ selected_cult.cult_id if selected_cult else 'null' }};
-let wideFile = null;
-let zoomFile = null;
+let videoFile = null;
+let shotType = 'wide';
+let qualityChartInstance = null;
+let segmentChartInstance = null;
 
 const QUALITY_LABEL = {
     'unripe': '미숙과', 'half_ripe': '반숙', 'ripe': '완숙',
@@ -181,70 +173,62 @@ const QUALITY_LABEL = {
     'blossom_end_rot': '배꼽썩음', 'fruit_cracking': '열과',
     'sunscald': '일소병', 'brown_rugose': '갈색주름'
 };
-const QUALITY_COLOR = {
-    'unripe': 'bg-green-100 text-green-700',
-    'half_ripe': 'bg-yellow-100 text-yellow-700',
-    'ripe': 'bg-red-100 text-red-700',
-    'rotten': 'bg-slate-100 text-slate-600',
-};
+const QUALITY_COLORS = ['#22c55e', '#f59e0b', '#ef4444', '#94a3b8', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#14b8a6', '#6366f1'];
+
 const SEG_LABEL = {
-    'tom_fruit_breaker_poly': 'Breaker (변색 시작)',
-    'tom_fruit_pink_poly': 'Pink (수확 임박)',
+    'tom_fruit_breaker_poly': 'Breaker',
+    'tom_fruit_pink_poly': 'Pink',
     'tom_fruit_red_poly': 'Red (완숙)'
 };
-const SEG_COLOR = {
-    'tom_fruit_breaker_poly': 'bg-orange-100 text-orange-700',
-    'tom_fruit_pink_poly': 'bg-pink-100 text-pink-700',
-    'tom_fruit_red_poly': 'bg-red-100 text-red-700'
-};
+const SEG_COLORS = ['#f97316', '#ec4899', '#ef4444'];
 
 function onCultChange(val) {
     selectedCultId = val;
     loadHistory();
 }
 
-function handleFile(input, type) {
-    const file = input.files[0];
-    if (!file) return;
+function setShotType(type) {
+    shotType = type;
     if (type === 'wide') {
-        wideFile = file;
-        document.getElementById('wideFileName').classList.remove('hidden');
-        document.getElementById('wideFileNameText').textContent = file.name;
+        document.getElementById('btnWide').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600';
+        document.getElementById('btnZoom').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
     } else {
-        zoomFile = file;
-        document.getElementById('zoomFileName').classList.remove('hidden');
-        document.getElementById('zoomFileNameText').textContent = file.name;
+        document.getElementById('btnZoom').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-sm font-bold transition-all border-purple-400 bg-purple-50 text-purple-600';
+        document.getElementById('btnWide').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
     }
 }
 
-function handleDrop(event, type) {
+function handleFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    videoFile = file;
+    document.getElementById('fileName').classList.remove('hidden');
+    document.getElementById('fileNameText').textContent = file.name;
+    document.getElementById('dropZone').classList.add('border-green-400', 'bg-green-50');
+}
+
+function handleDrop(event) {
     event.preventDefault();
     const file = event.dataTransfer.files[0];
     if (!file) return;
-    const input = document.getElementById(type + 'Input');
+    const input = document.getElementById('videoInput');
     const dt = new DataTransfer();
     dt.items.add(file);
     input.files = dt.files;
-    handleFile(input, type);
+    handleFile(input);
 }
 
-async function analyzeVision(type) {
-    if (!selectedCultId) {
-        alert('재배를 선택해주세요.');
-        return;
-    }
-    const file = type === 'wide' ? wideFile : zoomFile;
-    if (!file) {
-        alert('영상 파일을 업로드해주세요.');
-        return;
-    }
+async function analyzeVision() {
+    if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
+    if (!videoFile) { alert('영상 파일을 업로드해주세요.'); return; }
 
     document.getElementById('loadingSection').classList.remove('hidden');
     document.getElementById('resultSection').classList.add('hidden');
 
     const formData = new FormData();
-    formData.append('shot_type', type);
-    formData.append('image', file);
+    formData.append('shot_type', shotType);
+    formData.append('image', videoFile);
+    formData.append('zone_name', document.getElementById('zoneInput').value);
 
     try {
         const res = await fetch(`/vision/analyze/${selectedCultId}`, {
@@ -268,20 +252,89 @@ function renderResult(data) {
     document.getElementById('resultMeta').textContent =
         `총 ${results.total_frames || 0}프레임 중 ${results.analyzed_frames || 0}프레임 분석`;
 
-    // 품질
+    // 품질 도넛 차트
     const quality = results.quality || [];
     if (quality.length > 0) {
         document.getElementById('qualityResult').classList.remove('hidden');
-        const total = quality.reduce((s, q) => s + q.count, 0);
-        document.getElementById('qualityContent').innerHTML = quality.map(q => `
-            <div class="flex items-center gap-3">
-                <span class="text-sm font-bold text-slate-600 w-24">${QUALITY_LABEL[q.class_name] || q.class_name}</span>
-                <div class="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                    <div class="h-3 rounded-full bg-green-500 transition-all" style="width:${q.ratio}%"></div>
+
+        const labels = quality.map(q => QUALITY_LABEL[q.class_name] || q.class_name);
+        const counts = quality.map(q => q.count);
+        const colors = quality.map((_, i) => QUALITY_COLORS[i % QUALITY_COLORS.length]);
+
+        if (qualityChartInstance) qualityChartInstance.destroy();
+        qualityChartInstance = new Chart(document.getElementById('qualityChart'), {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{ data: counts, backgroundColor: colors, borderWidth: 0, borderRadius: 4 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '70%',
+                plugins: { legend: { display: false }, tooltip: {
+                    callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw}개 (${quality[ctx.dataIndex].ratio}%)` }
+                }}
+            }
+        });
+
+        document.getElementById('qualityLegend').innerHTML = quality.map((q, i) => `
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full flex-shrink-0" style="background:${colors[i]}"></div>
+                    <span class="text-sm font-medium text-slate-600">${QUALITY_LABEL[q.class_name] || q.class_name}</span>
                 </div>
-                <span class="text-sm font-bold text-slate-700 w-16 text-right">${q.count}개 (${q.ratio}%)</span>
+                <span class="text-sm font-bold text-slate-700">${q.count}개 <span class="text-slate-400 font-normal">(${q.ratio}%)</span></span>
             </div>
         `).join('');
+    }
+
+    // 숙성 분포 바 차트
+    const segment = results.segment || [];
+    if (segment.length > 0) {
+        document.getElementById('segmentResult').classList.remove('hidden');
+
+        const segLabels = segment.map(s => SEG_LABEL[s.class_name] || s.class_name);
+        const segCounts = segment.map(s => s.count);
+        const segGrowth = segment.map(s => s.avg_growth || 0);
+        const segColors = segment.map((_, i) => SEG_COLORS[i % SEG_COLORS.length]);
+
+        if (segmentChartInstance) segmentChartInstance.destroy();
+        segmentChartInstance = new Chart(document.getElementById('segmentChart'), {
+            type: 'bar',
+            data: {
+                labels: segLabels,
+                datasets: [
+                    {
+                        label: '과실 수',
+                        data: segCounts,
+                        backgroundColor: segColors,
+                        borderRadius: 8,
+                        borderSkipped: false,
+                        maxBarThickness: 48
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: (ctx) => {
+                                const idx = ctx.dataIndex;
+                                return [`${ctx.raw}개`, `성장률 ${segGrowth[idx]}%`];
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#64748b' } },
+                    y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' }, beginAtZero: true }
+                }
+            }
+        });
     }
 
     // 질병
@@ -310,29 +363,13 @@ function renderResult(data) {
         `;
     }
 
-    // 세그
-    const segment = results.segment || [];
-    if (segment.length > 0) {
-        document.getElementById('segmentResult').classList.remove('hidden');
-        document.getElementById('segmentContent').innerHTML = segment.map(s => `
-            <div class="flex items-center gap-3">
-                <span class="text-sm font-bold text-slate-600 w-36">${SEG_LABEL[s.class_name] || s.class_name}</span>
-                <div class="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                    <div class="h-3 rounded-full bg-orange-400 transition-all" style="width:${s.avg_growth || 0}%"></div>
-                </div>
-                <span class="text-sm font-bold text-slate-700 w-28 text-right">${s.count}개 / ${s.avg_growth || 0}%</span>
-            </div>
-        `).join('');
-    }
-
     if (window.lucide) lucide.createIcons();
 }
 
 async function loadHistory() {
     if (!selectedCultId) return;
     try {
-        const res = await fetch(`/vision/history/${selectedCultId}`, {
-        });
+        const res = await fetch(`/vision/history/${selectedCultId}`);
         const data = await res.json();
         renderHistory(data.history || []);
     } catch (err) {
@@ -346,6 +383,19 @@ function renderHistory(history) {
         el.innerHTML = '<p class="text-sm text-slate-400 text-center py-8">이력이 없습니다.</p>';
         return;
     }
+
+    const QUALITY_LABEL_MAP = {
+        'unripe': '미숙과', 'half_ripe': '반숙', 'ripe': '완숙',
+        'rotten': '부패', 'mold': '곰팡이', 'anthracnose': '탄저병',
+        'blossom_end_rot': '배꼽썩음', 'fruit_cracking': '열과',
+        'sunscald': '일소병', 'brown_rugose': '갈색주름'
+    };
+    const SEG_LABEL_MAP = {
+        'tom_fruit_breaker_poly': 'Breaker',
+        'tom_fruit_pink_poly': 'Pink',
+        'tom_fruit_red_poly': 'Red'
+    };
+
     el.innerHTML = `
         <div class="overflow-x-auto">
             <table class="w-full text-sm">
@@ -353,7 +403,7 @@ function renderHistory(history) {
                     <tr class="text-xs text-slate-400 font-bold border-b border-slate-100">
                         <th class="text-left py-3 pr-4">분석일시</th>
                         <th class="text-left py-3 pr-4">유형</th>
-                        <th class="text-left py-3 pr-4">품질 주요 결과</th>
+                        <th class="text-left py-3 pr-4">품질 결과</th>
                         <th class="text-left py-3 pr-4">질병</th>
                         <th class="text-left py-3">숙성 분포</th>
                     </tr>
@@ -368,8 +418,8 @@ function renderHistory(history) {
                                 </span>
                             </td>
                             <td class="py-3 pr-4 text-slate-600">
-                                ${h.quality ? h.quality.slice(0,2).map(q =>
-                                    `${QUALITY_LABEL[q.class_name] || q.class_name} ${q.ratio}%`
+                                ${h.quality ? h.quality.map(q =>
+                                    `${QUALITY_LABEL_MAP[q.class_name] || q.class_name} ${q.ratio}%`
                                 ).join(', ') : '-'}
                             </td>
                             <td class="py-3 pr-4">
@@ -378,8 +428,8 @@ function renderHistory(history) {
                                     : '<span class="text-green-600 font-bold">이상없음</span>'}
                             </td>
                             <td class="py-3 text-slate-600">
-                                ${h.segment ? h.segment.slice(0,2).map(s =>
-                                    `${SEG_LABEL[s.class_name]?.split(' ')[0] || s.class_name} ${s.avg_growth || 0}%`
+                                ${h.segment ? h.segment.map(s =>
+                                    `${SEG_LABEL_MAP[s.class_name] || s.class_name} ${s.avg_growth || 0}%`
                                 ).join(', ') : '-'}
                             </td>
                         </tr>
@@ -390,7 +440,6 @@ function renderHistory(history) {
     `;
 }
 
-// 페이지 로드시 이력 조회
 document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
     if (window.lucide) lucide.createIcons();
