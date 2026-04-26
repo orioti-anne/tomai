@@ -489,6 +489,12 @@ function playHistoryVideo(sessionId, videoPath) {
         });
 }
 
+function onCultChange(val) {
+    selectedCultId = val;
+    loadHistory();
+    loadZones();
+}
+
 function loadHistoryDetail(sessionId) {
     const h = historyData.find(x => x.session_id === sessionId);
     if (!h) return;
