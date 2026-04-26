@@ -562,7 +562,7 @@ function renderHistory(history) {
                                     : '<span class="text-slate-400">-</span>'}
                             </td>
                             <td class="py-3 px-2 text-slate-600 text-xs">
-                                ${h.segment ? h.segment.map(s=>`${SEG_NAME_MAP[s.class_name]||s.class_name} (${s.avg_growth != null ? s.avg_growth + '%' : '-'})`
+                                ${h.segment && h.segment.length > 0 ? h.segment.map(s=>`${SEG_NAME_MAP[s.class_name]||s.class_name} (${s.avg_growth != null ? s.avg_growth + '%' : '-'})`).join('<br>') : '-'}
 
                             </td>
                             <td class="py-3 px-2">
