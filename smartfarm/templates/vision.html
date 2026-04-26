@@ -493,6 +493,24 @@ function loadHistoryDetail(sessionId) {
     const h = historyData.find(x => x.session_id === sessionId);
     if (!h) return;
 
+    // 이전 결과 초기화
+    document.getElementById('resultSection').classList.add('hidden');
+    document.getElementById('qualityResult').classList.add('hidden');
+    document.getElementById('segmentResult').classList.add('hidden');
+    document.getElementById('diseaseResult').classList.add('hidden');
+    document.getElementById('diseaseContent').innerHTML = '';
+    if (qualityChartInstance) { qualityChartInstance.destroy(); qualityChartInstance = null; }
+    if (segmentChartInstance) { segmentChartInstance.destroy(); segmentChartInstance = null; }
+
+    playHistoryVideo(h.session_id, h.video_path);
+    renderResult({...});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function loadHistoryDetail(sessionId) {
+    const h = historyData.find(x => x.session_id === sessionId);
+    if (!h) return;
+
     playHistoryVideo(h.session_id, h.video_path);
     renderResult({
         shot_type: h.shot_type,
