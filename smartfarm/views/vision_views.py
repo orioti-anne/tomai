@@ -301,7 +301,7 @@ def analyze(cult_id):
                        'area': s['avg_area'], 'growth': s['avg_growth']})
 
         output_dir = os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             'static', 'vision_output'
         )
         output_path = os.path.join(output_dir, f'vision_{session_id}.mp4')
