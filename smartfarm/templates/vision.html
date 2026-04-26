@@ -363,7 +363,7 @@ function renderResult(data) {
         document.getElementById('qualityResult').classList.remove('hidden');
         const labels = quality.map(q => QUALITY_LABEL[q.class_name] || q.class_name);
         const counts = quality.map(q => q.count);
-        const colors = [quality.map](http://quality.map)(q => QUALITY_COLOR_MAP[q.class_name] || '#94a3b8');
+        const colors = quality.map(q => QUALITY_COLOR_MAP[q.class_name] || '#94a3b8');
 
         if (qualityChartInstance) qualityChartInstance.destroy();
         qualityChartInstance = new Chart(document.getElementById('qualityChart'), {
