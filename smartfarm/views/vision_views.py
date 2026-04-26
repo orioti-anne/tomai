@@ -23,6 +23,16 @@ def get_models():
         _disease_model = YOLO(os.path.join(_DL_DIR, 'disease_best.pt'))
         _quality_model = YOLO(os.path.join(_DL_DIR, 'quality_best.pt'))
         _seg_model = YOLO(os.path.join(_DL_DIR, 'seg_best.pt'))
+
+        # M4 MPS GPU 사용
+        try:
+            _disease_model.to('mps')
+            _quality_model.to('mps')
+            _seg_model.to('mps')
+            print("[VISION] MPS GPU 사용")
+        except Exception as e:
+            print(f"[VISION] MPS 사용 불가, CPU 사용: {e}")
+
     return _disease_model, _quality_model, _seg_model
 
 
