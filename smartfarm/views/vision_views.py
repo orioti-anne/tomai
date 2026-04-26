@@ -358,7 +358,8 @@ def video_status(session_id):
 
         if status == 'ready' and video_path:
             video_url = '/static/vision_output/' + os.path.basename(video_path)
-            return jsonify({'status': 'ready', 'video_url': video_url})
+            is_image = video_path.endswith(('.jpg', '.jpeg', '.png'))
+            return jsonify({'status': 'ready', 'video_url': video_url, 'is_image': is_image})
         elif status == 'deleted':
             return jsonify({'status': 'deleted'})
         else:
