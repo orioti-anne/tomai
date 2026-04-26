@@ -321,6 +321,7 @@ async function analyzeVision() {
     if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
     if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
 
+    clearResults();
     showVideoState('analysisLoading');
     document.getElementById('resultSection').classList.add('hidden');
     document.getElementById('videoStatus').textContent = '';
