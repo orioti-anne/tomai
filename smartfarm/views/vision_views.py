@@ -297,24 +297,6 @@ def index():
         username=g.user.username
     )
 
-@bp.route('/zones/<int:cult_id>')
-def zones(cult_id):
-    try:
-        from sqlalchemy import text
-        with db.engine.connect() as conn:
-            result = conn.execute(text("""
-                SELECT DISTINCT zone_name 
-                FROM vision_session 
-                WHERE cult_id = :cult_id 
-                AND zone_name IS NOT NULL 
-                AND zone_name != ''
-                ORDER BY zone_name
-            """), {'cult_id': cult_id})
-            zones = [row[0] for row in result]
-        return jsonify({'zones': zones}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
 
 
 @bp.route('/analyze/<int:cult_id>', methods=['POST'])
