@@ -425,6 +425,7 @@ function renderHistory(history) {
             <table class="w-full text-sm">
                 <thead>
                     <tr class="text-xs text-slate-400 font-bold border-b border-slate-100">
+                        <th class="text-left py-3 pr-4">구역명</th>
                         <th class="text-left py-3 pr-4">분석일시</th>
                         <th class="text-left py-3 pr-4">유형</th>
                         <th class="text-left py-3 pr-4">품질 결과</th>
@@ -435,6 +436,7 @@ function renderHistory(history) {
                 <tbody class="divide-y divide-slate-50">
                     ${history.map(h => `
                         <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="py-3 pr-4 text-slate-600">${h.zone_name || '-'}</td>
                             <td class="py-3 pr-4 font-medium text-slate-700">${h.analyzed_at}</td>
                             <td class="py-3 pr-4">
                                 <span class="px-2 py-1 rounded-full text-xs font-bold ${h.shot_type === 'wide' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}">

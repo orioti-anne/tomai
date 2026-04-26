@@ -115,7 +115,6 @@ def index():
             Farms.user_id == g.user.user_id,
             Cultivations.status == 'active'
         )
-        .order_by(Cultivations.created_at.desc())
         .all()
     )
     selected_cult = cult_list[0] if cult_list else None
@@ -211,7 +210,7 @@ def history(cult_id):
         from sqlalchemy import text
         with db.engine.connect() as conn:
             sessions = conn.execute(text("""
-                SELECT s.session_id, s.shot_type, s.analyzed_at,
+                SELECT s.session_id, s.shot_type, s.analyzed_at, s.zone_name,
                        json_agg(DISTINCT jsonb_build_object(
                            'class_name', q.class_name, 'count', q.count, 'ratio', q.ratio
                        )) FILTER (WHERE q.id IS NOT NULL) as quality,
@@ -238,6 +237,7 @@ def history(cult_id):
                     'session_id': row.session_id,
                     'shot_type': row.shot_type,
                     'analyzed_at': row.analyzed_at.strftime("%Y-%m-%d %H:%M"),
+                    'zone_name': row.zone_name or '-',
                     'quality': row.quality or [],
                     'disease': row.disease or [],
                     'segment': row.segment or []
