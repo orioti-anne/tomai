@@ -408,8 +408,7 @@ function renderResult(data) {
                 }},
                 scales: {
                     x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#64748b' } },
-                    y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', callback: value => `${value}%` }
-                }
+                    y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', callback: value => `${value}%` }, beginAtZero: true }                   }
             }
         });
     }
@@ -527,7 +526,7 @@ function renderHistory(history) {
                                     : '<span class="text-slate-400 text-xs">-</span>'}
                             </td>
                             <td class="py-3 pr-4 text-slate-600 text-xs">
-                                ${h.segment ? h.segment.map(s=>`${({"tom_fruit_breaker_poly":"Green","tom_fruit_pink_poly":"Pink","tom_fruit_red_poly":"Red"})[s.class_name]||s.class_name} ${s.count}개 (${s.avg_growth||0}%)`).join(', ') : '-'}                            </td>
+                                ${h.segment ? h.segment.map(s=>`${({"tom_fruit_breaker_poly":"Green","tom_fruit_pink_poly":"Pink","tom_fruit_red_poly":"Red"})[s.class_name]||s.class_name} (${s.avg_growth||0}%)`).join(', ') : '-'}                            </td>
                             <td class="py-3">
                                 <button onclick="playHistoryVideo(${h.session_id}, '${h.video_path||''}')"
                                     class="flex items-center gap-1 text-xs font-bold ${h.video_path?'text-green-600 hover:text-green-700':'text-slate-300 cursor-default'} transition-colors">
