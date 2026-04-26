@@ -87,7 +87,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                 disease_total[cls] = disease_total.get(cls, 0) + 1
                 disease_conf.setdefault(cls, []).append(float(box.conf))
 
-            s = seg_model(frame, conf=0.4, verbose=False)[0]
+            s = seg_model(frame, conf=0.3, verbose=False)[0]
             if s.masks is not None:
                 for box, mask in zip(s.boxes, s.masks):
                     cls = s.names[int(box.cls)]
@@ -182,7 +182,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), 2)
                         draw_text_bg(overlay, f"D:{cls[:8]}", (x1, y1-8), 0.45, (0, 0, 255))
 
-                    s = seg_model(frame, conf=0.2, verbose=False)[0]
+                    s = seg_model(frame, conf=0.3, verbose=False)[0]
                     if s.masks is not None:
                         seg_areas = {k: [] for k in SEG_COLOR}
                         for box, mask in zip(s.boxes, s.masks):
