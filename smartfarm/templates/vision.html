@@ -215,6 +215,18 @@ let segmentChartInstance = null;
 let pollingTimer = null;
 let historyData = [];
 
+const DISEASE_LABEL = {
+    'Early Blight':     '초기 역병',
+    'Late Blight':      '역병',
+    'Leaf Mold':        '잎곰팡이',
+    'Septoria':         '셉토리아 반점',
+    'Spider Mites':     '응애',
+    'Target Spot':      '겹무늬병',
+    'Yellow Leaf Curl': '황화잎말림',
+    'Mosaic Virus':     '모자이크 바이러스',
+    'Healthy':          '정상'
+};
+
 const QUALITY_LABEL = {
     'unripe': '미숙과', 'half_ripe': '반숙', 'ripe': '완숙',
     'rotten': '부패', 'mold': '곰팡이', 'anthracnose': '탄저병',
@@ -440,7 +452,7 @@ function renderResult(data) {
             <div class="flex items-center justify-between bg-red-50 rounded-xl px-4 py-3">
                 <div class="flex items-center gap-2">
                     <i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i>
-                    <span class="text-sm font-bold text-red-700">${d.class_name}</span>
+                    <span class="text-sm font-bold text-red-700">${DISEASE_LABEL[d.class_name] || d.class_name}</span>
                 </div>
                 <div class="text-right">
                     <p class="text-sm font-bold text-slate-700">${d.count}회 감지</p>
