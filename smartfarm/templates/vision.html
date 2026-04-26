@@ -503,7 +503,7 @@ function renderHistory(history) {
                                 </span>
                             </td>
                             <td class="py-3 pr-4 text-slate-600 text-xs">
-                                ${h.quality ? h.quality.map(q=>`${({"unripe":"미숙과","half_ripe":"반숙","ripe":"완숙","rotten":"부패"})[q.class_name]||q.class_name} ${q.ratio}%`).join(', ') : '-'}
+                                ${h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join(', ') : '-'}
                             </td>
                             <td class="py-3 pr-4">
                                 ${h.disease&&h.disease.length>0
