@@ -372,7 +372,7 @@ function renderResult(data) {
             options: {
                 responsive: true, maintainAspectRatio: true, cutout: '70%',
                 plugins: { legend: { display: false }, tooltip: {
-                    callbacks: {label: (ctx) => [`${ctx.raw}개`, `평균 성장률 ${segGrowth[ctx.dataIndex]}%`]}
+                    callbacks: { label: (ctx) => `vs. Red ${ctx.raw}%` }
                 }}
             }
         });
@@ -383,7 +383,7 @@ function renderResult(data) {
                     <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${colors[i]}"></div>
                     <span class="text-xs font-medium text-slate-600 truncate">${QUALITY_LABEL[q.class_name]||q.class_name}</span>
                 </div>
-                <span class="text-xs font-bold text-slate-700 flex-shrink-0">${q.count}개 <span class="text-slate-400 font-normal">(${q.ratio}%)</span></span>
+                <span class="text-xs font-bold text-slate-700 flex-shrink-0">${q.ratio}%</span>
             </div>
         `).join('');
     }
@@ -393,7 +393,7 @@ function renderResult(data) {
     if (segment.length > 0) {
         document.getElementById('segmentResult').classList.remove('hidden');
         const segLabels = segment.map(s => SEG_LABEL[s.class_name] || s.class_name);
-        const segCounts = segment.map(s => s.count);
+        const segCounts = segment.map(s => s.avg_growth || 0);
         const segGrowth = segment.map(s => s.avg_growth || 0);
         const segColors = segment.map((_, i) => SEG_COLORS[i % SEG_COLORS.length]);
 
@@ -404,11 +404,11 @@ function renderResult(data) {
             options: {
                 responsive: true, maintainAspectRatio: false,
                 plugins: { legend: { display: false }, tooltip: {
-                    callbacks: { label: (ctx) => [`${ctx.raw}개`, `성장률 ${segGrowth[ctx.dataIndex]}%`] }
+                    callbacks: { label: (ctx) => `vs. Red ${ctx.raw}%` }
                 }},
                 scales: {
                     x: { grid: { display: false }, ticks: { font: { weight: 'bold' }, color: '#64748b' } },
-                    y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8' }, beginAtZero: true }
+                    y: { grid: { color: '#f1f5f9' }, ticks: { color: '#94a3b8', callback: value => `${value}%` }
                 }
             }
         });
@@ -502,7 +502,7 @@ function renderHistory(history) {
                         <th class="text-left py-3 pr-4">유형</th>
                         <th class="text-left py-3 pr-4">품질 결과</th>
                         <th class="text-left py-3 pr-4">잎 질병</th>
-                        <th class="text-left py-3 pr-4">숙성분류별 평균성장률</th>
+                        <th class="text-left py-3 pr-4">분류별 평균 사이즈(완숙 대비)</th>
                         <th class="text-left py-3">영상</th>
                     </tr>
                 </thead>
