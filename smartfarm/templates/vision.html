@@ -124,6 +124,10 @@
                         <source id="videoSource" src="" type="video/mp4">
                     </video>
                 </div>
+                <!-- 이미지 뷰어 -->
+                <div id="imagePlayer" class="hidden">
+                    <img id="resultImage" src="" class="w-full aspect-video object-contain bg-black">
+                </div>
 
                 <div id="videoDeleted" class="hidden aspect-video bg-slate-50 flex flex-col items-center justify-center">
                     <i data-lucide="trash-2" class="w-10 h-10 text-slate-300 mb-3"></i>
@@ -285,13 +289,19 @@ function handleDrop(event) {
     handleFile(input);
 }
 
-function showVideoState(state, videoUrl) {
-    const states = ['videoPlaceholder','analysisLoading','videoGenerating','videoPlayer','videoDeleted'];
+function showVideoState(state, url, isImage=false) {
+    const states = ['videoPlaceholder','analysisLoading','videoGenerating','videoPlayer','imagePlayer','videoDeleted'];
     states.forEach(s => document.getElementById(s).classList.add('hidden'));
     document.getElementById(state).classList.remove('hidden');
-    if (state === 'videoPlayer' && videoUrl) {
-        document.getElementById('videoSource').src = videoUrl;
-        document.getElementById('resultVideo').load();
+    if (state === 'videoPlayer' && url) {
+        if (isImage) {
+            document.getElementById('imagePlayer').classList.remove('hidden');
+            document.getElementById('videoPlayer').classList.add('hidden');
+            document.getElementById('resultImage').src = url;
+        } else {
+            document.getElementById('videoSource').src = url;
+            document.getElementById('resultVideo').load();
+        }
     }
 }
 
