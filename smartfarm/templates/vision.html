@@ -31,12 +31,17 @@
                     {% endfor %}
                 </select>
             </div>
-
             <!-- 구역명 -->
             <div>
                 <label class="block text-xs text-slate-400 font-bold mb-2">구역명</label>
-                <input type="text" id="zoneInput" placeholder="예: A구역, 1번 하우스"
-                    class="w-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 rounded-2xl px-4 py-3 outline-none focus:border-green-400 transition-colors">
+                <div class="flex gap-2">
+                    <select id="zoneSelect" onchange="onZoneSelect(this.value)"
+                        class="flex-1 bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 rounded-2xl px-4 py-3 outline-none focus:border-green-400 transition-colors">
+                        <option value="">구역 선택 또는 직접 입력</option>
+                    </select>
+                </div>
+                <input type="text" id="zoneInput" placeholder="새 구역명 직접 입력"
+                    class="w-full mt-2 bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 rounded-2xl px-4 py-3 outline-none focus:border-green-400 transition-colors">
             </div>
 
             <!-- 촬영 유형 -->
@@ -161,6 +166,24 @@
 
 {% block script %}
 <script>
+
+function onZoneSelect(val) {
+    if (val) document.getElementById('zoneInput').value = val;
+}
+
+async function loadZones() {
+    if (!selectedCultId) return;
+    try {
+        const res = await fetch(`/vision/zones/${selectedCultId}`);
+        const data = await res.json();
+        const select = document.getElementById('zoneSelect');
+        select.innerHTML = '<option value="">구역 선택 또는 직접 입력</option>';
+        data.zones.forEach(z => {
+            select.innerHTML += `<option value="${z}">${z}</option>`;
+        });
+    } catch(e) {}
+}
+
 let selectedCultId = {{ selected_cult.cult_id if selected_cult else 'null' }};
 let videoFile = null;
 let shotType = 'wide';
@@ -185,6 +208,7 @@ const SEG_COLORS = ['#f97316', '#ec4899', '#ef4444'];
 function onCultChange(val) {
     selectedCultId = val;
     loadHistory();
+    loadZones()
 }
 
 function setShotType(type) {
@@ -442,6 +466,7 @@ function renderHistory(history) {
 
 document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
+    loadZones()
     if (window.lucide) lucide.createIcons();
 });
 </script>
