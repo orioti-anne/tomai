@@ -562,7 +562,8 @@ function renderHistory(history) {
                                     : '<span class="text-slate-400">-</span>'}
                             </td>
                             <td class="py-3 px-2 text-slate-600 text-xs">
-                                ${h.segment ? h.segment.map(s=>`${SEG_NAME_MAP[s.class_name]||s.class_name} (${s.avg_growth||0}%)`).join('<br>') : '-'}
+                                ${h.segment ? h.segment.map(s=>`${SEG_NAME_MAP[s.class_name]||s.class_name} (${s.avg_growth != null ? s.avg_growth + '%' : '-'})`
+
                             </td>
                             <td class="py-3 px-2">
                                 <span class="text-xs ${h.video_path?'text-green-600':'text-slate-300'}">
