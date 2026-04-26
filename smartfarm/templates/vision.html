@@ -223,13 +223,25 @@ const QUALITY_LABEL = {
     'blossom_end_rot': '배꼽썩음', 'fruit_cracking': '열과',
     'sunscald': '일소병', 'brown_rugose': '갈색주름'
 };
-const QUALITY_COLORS = ['#22c55e','#f59e0b','#ef4444','#94a3b8','#8b5cf6','#06b6d4','#f97316','#ec4899','#14b8a6','#6366f1'];
-const SEG_LABEL = {
-    'tom_fruit_breaker_poly': 'Breaker',
-    'tom_fruit_pink_poly': 'Pink',
-    'tom_fruit_red_poly': 'Red (완숙)'
+
+const QUALITY_COLOR_MAP = {
+    'unripe':    '#32cd32',
+    'half_ripe': '#ec4899',
+    'ripe':      '#dc143c',
+    'rotten':    '#3c3c3c',
+    'blossom_end_rot': '#964b00',
+    'fruit_cracking':  '#8b00ff',
+    'sunscald':        '#ffd700',
+    'brown_rugose':    '#8b4513',
 };
-const SEG_COLORS = ['#f97316','#ec4899','#ef4444'];
+
+const SEG_LABEL = {
+    'tom_fruit_breaker_poly': 'Green',
+    'tom_fruit_pink_poly': 'Pink',
+    'tom_fruit_red_poly': 'Red'
+};
+
+const SEG_COLORS = ['#32cd32','#ec4899','#ef4444'];
 
 function onCultChange(val) {
     selectedCultId = val;
@@ -351,7 +363,7 @@ function renderResult(data) {
         document.getElementById('qualityResult').classList.remove('hidden');
         const labels = quality.map(q => QUALITY_LABEL[q.class_name] || q.class_name);
         const counts = quality.map(q => q.count);
-        const colors = quality.map((_, i) => QUALITY_COLORS[i % QUALITY_COLORS.length]);
+        const colors = [quality.map](http://quality.map)(q => QUALITY_COLOR_MAP[q.class_name] || '#94a3b8');
 
         if (qualityChartInstance) qualityChartInstance.destroy();
         qualityChartInstance = new Chart(document.getElementById('qualityChart'), {
