@@ -149,14 +149,16 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
             }
 
             def draw_text_bg(img, text, pos, scale, color):
-                (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 2)
+                (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 1)
                 x, y = pos
                 if y - th - 4 < 0:
                     y = y + th + 4
                 if x + tw + 4 > img.shape[1]:
                     x = img.shape[1] - tw - 6
-                cv2.rectangle(img, (x, y-th-4), (x+tw+4, y+4), (0, 0, 0), -1)
-                cv2.putText(img, text, (x+2, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, 2)
+                bg = img.copy()
+                cv2.rectangle(bg, (x, y - th - 4), (x + tw + 4, y + 4), (0, 0, 0), -1)
+                cv2.addWeighted(bg, 0.5, img, 0.5, 0, img)
+                cv2.putText(img, text, (x + 2, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, 1)
 
             def process_frame(frame):
                 overlay = frame.copy()
@@ -168,7 +170,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                         x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
                         color = QUALITY_COLOR.get(cls, (200, 200, 200))
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 1)
-                        draw_text_bg(overlay, f"Q:{cls[:4]} {float(box.conf):.2f}", (x1, y2+15), 0.4, color)
+                        draw_text_bg(overlay, f"Q:{cls[:4]} {float(box.conf):.2f}", (x1, y2+15), 0.3, color)
 
                 if shot_type == 'zoom':
                     d = disease_model(frame, conf=0.5, verbose=False)[0]
