@@ -320,6 +320,16 @@ function showVideoState(state, url, isImage=false) {
     }
 }
 
+async function deleteSession(sessionId) {
+    if (!confirm('이 분석 이력을 삭제할까요?')) return;
+    try {
+        const res = await fetch(`/vision/session/${sessionId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) loadHistory();
+    } catch(e) {}
+}
+
+
 async function analyzeVision() {
     if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
     if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
@@ -555,6 +565,7 @@ function renderHistory(history) {
                         <th class="text-left py-3 px-2">질병</th>
                         <th class="text-left py-3 px-2">평균 사이즈 (완숙 대비)</th>
                         <th class="text-left py-3 px-2">미디어</th>
+                        <th class="text-left py-3 px-2"></th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-50">
@@ -586,6 +597,12 @@ function renderHistory(history) {
                                 <span class="text-xs ${h.video_path?'text-green-600':'text-slate-300'}">
                                     <i data-lucide="${h.video_path ? (h.video_path.match(/\.(jpg|jpeg|png)$/i) ? 'image' : 'play-circle') : 'video-off'}" class="w-4 h-4"></i>
                                 </span>
+                            </td>
+                            <td class="py-3 px-2">
+                                <button onclick="event.stopPropagation(); deleteSession(${h.session_id})"
+                                    class="text-slate-300 hover:text-red-400 transition-colors">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
                             </td>
                         </tr>
                     `).join('')}

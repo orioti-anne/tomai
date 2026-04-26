@@ -443,3 +443,27 @@ def history(cult_id):
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+@bp.route('/session/<int:session_id>', methods=['DELETE'])
+def delete_session(session_id):
+    try:
+        from sqlalchemy import text
+        with db.engine.begin() as conn:
+            # 영상 파일 삭제
+            row = conn.execute(text("""
+                SELECT video_path FROM vision_session WHERE session_id=:sid
+            """), {'sid': session_id}).fetchone()
+
+            if row and row.video_path and os.path.exists(row.video_path):
+                os.remove(row.video_path)
+
+            # DB 삭제
+            conn.execute(text("DELETE FROM vision_quality WHERE session_id=:sid"), {'sid': session_id})
+            conn.execute(text("DELETE FROM vision_disease WHERE session_id=:sid"), {'sid': session_id})
+            conn.execute(text("DELETE FROM vision_segment WHERE session_id=:sid"), {'sid': session_id})
+            conn.execute(text("DELETE FROM vision_session WHERE session_id=:sid"), {'sid': session_id})
+
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
