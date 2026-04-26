@@ -120,7 +120,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path)
             h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (w, h))
+            out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'avc1'), fps, (w, h))
 
             SEG_COLOR = {
                 'tom_fruit_breaker_poly': (0, 255, 128),
