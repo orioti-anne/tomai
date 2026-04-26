@@ -489,28 +489,28 @@ function playHistoryVideo(sessionId, videoPath) {
         });
 }
 
-function loadHistoryDetail(h) {
-    // 영상 재생
-    playHistoryVideo(h.session_id, h.video_path);
+function loadHistoryDetail(sessionId) {
+    const h = historyData.find(x => x.session_id === sessionId);
+    if (!h) return;
 
-    // 차트 결과 표시
+    playHistoryVideo(h.session_id, h.video_path);
     renderResult({
         shot_type: h.shot_type,
         results: {
-            total_frames: h.total_frames || 0,
-            analyzed_frames: h.analyzed_frames || 0,
+            total_frames: 0,
+            analyzed_frames: 0,
             quality: h.quality || [],
             disease: h.disease || [],
             segment: h.segment || []
         }
     });
-
-    // 상단으로 스크롤
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+let historyData = [];
 
 function renderHistory(history) {
+    historyData = history;
     const el = document.getElementById('historyContent');
     if (history.length === 0) {
         el.innerHTML = '<p class="text-sm text-slate-400 text-center py-8">이력이 없습니다.</p>';
@@ -533,7 +533,7 @@ function renderHistory(history) {
                 </thead>
                 <tbody class="divide-y divide-slate-50">
                     ${history.map(h => `
-                        <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="loadHistoryDetail(${JSON.stringify(h).replace(/'/g, '&#39;')})">
+                            <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
                             <td class="py-3 px-2 font-medium text-slate-700 whitespace-nowrap text-xs">${h.analyzed_at}</td>
                             <td class="py-3 px-2 text-slate-600 text-xs">${h.zone_name || '-'}</td>
                             <td class="py-3 px-2">
