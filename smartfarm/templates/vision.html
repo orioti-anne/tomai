@@ -639,6 +639,12 @@ function renderHistory(history) {
                                 : '<span class="text-green-600 font-bold text-xs">이상없음</span>')
                             : '<span class="text-slate-400 text-xs">-</span>'}
                     </div>
+                    <div class="flex justify-end pt-1">
+                        <button onclick="event.stopPropagation(); deleteSession(${h.session_id})"
+                            class="text-slate-300 hover:text-red-400 transition-colors">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
                 </div>
             `).join('')}
         </div>
