@@ -486,7 +486,8 @@ function renderHistory(history) {
         return;
     }
     el.innerHTML = `
-        <div class="overflow-x-auto -mx-2">
+        <!-- 데스크탑 테이블 -->
+        <div class="hidden md:block overflow-x-auto -mx-2">
             <table class="w-full text-sm min-w-[640px]">
                 <thead>
                     <tr class="text-xs text-slate-400 font-bold border-b border-slate-100">
@@ -533,6 +534,43 @@ function renderHistory(history) {
                     `).join('')}
                 </tbody>
             </table>
+        </div>
+
+        <!-- 모바일 카드 -->
+        <div class="md:hidden space-y-3">
+            ${history.map(h => `
+                <div class="bg-slate-50 rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-400">${h.analyzed_at}</span>
+                        <span class="px-2 py-1 rounded-full text-xs font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':'bg-purple-50 text-purple-600'}">
+                            ${h.shot_type==='wide'?'Wide':'Zoom'}
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400">구역</span>
+                        <span class="text-xs font-bold text-slate-700">${h.zone_name||'-'}</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block mb-1">품질</span>
+                        <span class="text-xs text-slate-600">${h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join(' · ') : '-'}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-slate-400 block mb-1">질병</span>
+                            ${h.shot_type === 'zoom'
+                                ? (h.disease && h.disease.length > 0
+                                    ? `<span class="text-red-500 font-bold text-xs">${h.disease.length}종 감지</span>`
+                                    : '<span class="text-green-600 font-bold text-xs">이상없음</span>')
+                                : '<span class="text-slate-400 text-xs">-</span>'}
+                        </div>
+                        <button onclick="playHistoryVideo(${h.session_id}, '${h.video_path||''}')"
+                            class="flex items-center gap-1 text-xs font-bold ${h.video_path?'text-green-600':'text-slate-300 cursor-default'} transition-colors">
+                            <i data-lucide="${h.video_path?'play-circle':'video-off'}" class="w-4 h-4"></i>
+                            ${h.video_path?'재생':'없음'}
+                        </button>
+                    </div>
+                </div>
+            `).join('')}
         </div>
     `;
     if (window.lucide) lucide.createIcons();
