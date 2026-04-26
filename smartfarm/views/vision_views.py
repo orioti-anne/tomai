@@ -26,32 +26,42 @@ def get_models():
     return _disease_model, _quality_model, _seg_model
 
 
-def _run_vision(image_or_video, shot_type):
+def _run_vision(image_or_video, shot_type, is_image=False):
     disease_model, quality_model, seg_model = get_models()
 
-    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
-        tmp.write(image_or_video)
-        tmp_path = tmp.name
-
-    cap = cv2.VideoCapture(tmp_path)
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if is_image:
+        import numpy as np
+        nparr = np.frombuffer(image_or_video, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        frames = [frame]
+        total_frames = 1
+        analyzed = 1
+    else:
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+            tmp.write(image_or_video)
+            tmp_path = tmp.name
+        cap = cv2.VideoCapture(tmp_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        frames = []
+        frame_count = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            frame_count += 1
+            if frame_count % 15 != 0:
+                continue
+            frames.append(frame)
+        cap.release()
+        os.unlink(tmp_path)
+        analyzed = len(frames)
 
     quality_total = {}
     disease_total = {}
     disease_conf = {}
     seg_total = {}
-    frame_count = 0
-    analyzed = 0
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        frame_count += 1
-        if frame_count % 15 != 0:
-            continue
-        analyzed += 1
-
+    for frame in frames:
         if shot_type in ('wide', 'zoom'):
             q = quality_model(frame, conf=0.5, verbose=False)[0]
             for box in q.boxes:
@@ -73,9 +83,6 @@ def _run_vision(image_or_video, shot_type):
                     cls = s.names[int(box.cls)]
                     area = int(mask.data.sum().item())
                     seg_total.setdefault(cls, []).append(area)
-
-    cap.release()
-    os.unlink(tmp_path)
 
     results = {}
     q_total = sum(quality_total.values()) or 1
@@ -105,22 +112,10 @@ def _run_vision(image_or_video, shot_type):
     return results
 
 
-def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path):
+def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path, is_image=False):
     with app.app_context():
         try:
             disease_model, quality_model, seg_model = get_models()
-
-            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
-                tmp.write(video_bytes)
-                tmp_path = tmp.name
-
-            cap = cv2.VideoCapture(tmp_path)
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-            os.makedirs(os.path.dirname(output_path), exist_ok=True)
-            out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'avc1'), fps, (w, h))
 
             SEG_COLOR = {
                 'tom_fruit_breaker_poly': (0, 255, 128),
@@ -153,12 +148,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path)
                 cv2.rectangle(img, (x, y-th-4), (x+tw+4, y+4), (0, 0, 0), -1)
                 cv2.putText(img, text, (x+2, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, 2)
 
-            frame_count = 0
-            while cap.isOpened():
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                frame_count += 1
+            def process_frame(frame):
                 overlay = frame.copy()
 
                 if shot_type in ('wide', 'zoom'):
@@ -205,12 +195,39 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path)
                                 cv2.rectangle(overlay, (x1, y2+2), (x2, y2+10), (50, 50, 50), -1)
                                 cv2.rectangle(overlay, (x1, y2+2), (x1+int(bar_w*pct/100), y2+10), color, -1)
 
-                result = cv2.addWeighted(overlay, 0.85, frame, 0.15, 0)
-                out.write(result)
+                return cv2.addWeighted(overlay, 0.85, frame, 0.15, 0)
 
-            cap.release()
-            out.release()
-            os.unlink(tmp_path)
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+            if is_image:
+                # 이미지 단일 프레임 처리
+                import numpy as np
+                nparr = np.frombuffer(video_bytes, np.uint8)
+                frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                result = process_frame(frame)
+                cv2.imwrite(output_path, result)
+            else:
+                # 영상 처리
+                with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+                    tmp.write(video_bytes)
+                    tmp_path = tmp.name
+
+                cap = cv2.VideoCapture(tmp_path)
+                fps = cap.get(cv2.CAP_PROP_FPS)
+                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+                out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'avc1'), fps, (w, h))
+
+                while cap.isOpened():
+                    ret, frame = cap.read()
+                    if not ret:
+                        break
+                    result = process_frame(frame)
+                    out.write(result)
+
+                cap.release()
+                out.release()
+                os.unlink(tmp_path)
 
             from sqlalchemy import text
             with db.engine.begin() as conn:
@@ -228,7 +245,6 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path)
                 conn.execute(text("""
                     UPDATE vision_session SET video_status='error' WHERE session_id=:sid
                 """), {'sid': session_id})
-
 
 @bp.route('/')
 def index():
@@ -264,7 +280,8 @@ def analyze(cult_id):
 
         file = request.files['image']
         image_or_video = file.read()
-        vision_results = _run_vision(image_or_video, shot_type)
+        is_image = file.content_type.startswith('image/')
+        vision_results = _run_vision(image_or_video, shot_type, is_image=is_image)
 
         from sqlalchemy import text
         with db.engine.begin() as conn:
@@ -300,14 +317,15 @@ def analyze(cult_id):
                 """), {'sid': session_id, 'cls': s['class_name'], 'cnt': s['count'],
                        'area': s['avg_area'], 'growth': s['avg_growth']})
 
+        suffix = '.jpg' if is_image else '.mp4'
         output_dir = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
             'static', 'vision_output'
         )
-        output_path = os.path.join(output_dir, f'vision_{session_id}.mp4')
+        output_path = os.path.join(output_dir, f'vision_{session_id}{suffix}')
         app = current_app._get_current_object()
         t = threading.Thread(target=_generate_vision_video,
-                             args=(app, session_id, image_or_video, shot_type, output_path))
+                             args=(app, session_id, image_or_video, shot_type, output_path, is_image))
         t.daemon = True
         t.start()
 
