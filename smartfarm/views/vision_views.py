@@ -106,7 +106,21 @@ def _run_vision(image_or_video, shot_type, is_image=False):
         for k, v in disease_total.items()
     ]
     red_areas = seg_total.get('tom_fruit_red_poly', [])
-    red_avg = sum(red_areas) / len(red_areas) if red_areas else None
+    pink_areas = seg_total.get('tom_fruit_pink_poly', [])
+    green_areas = seg_total.get('tom_fruit_breaker_poly', [])
+
+    if red_areas:
+        red_avg = sum(red_areas) / len(red_areas)
+    elif pink_areas:
+        # Pink 최대값이 Red의 90%라고 가정
+        pink_max = max(pink_areas)
+        red_avg = pink_max / 0.9
+    elif green_areas:
+        # Green 최대값이 Red의 50%라고 가정
+        green_max = max(green_areas)
+        red_avg = green_max / 0.5
+    else:
+        red_avg = None
     results['segment'] = []
     for cls, areas in seg_total.items():
         avg_area = sum(areas) / len(areas)
