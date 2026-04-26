@@ -162,13 +162,13 @@
                         </div>
                     </div>
 
-                    <!-- 숙성 분포 바 차트 -->
+                    <!-- 숙성 바 차트 -->
                     <div id="segmentResult" class="hidden bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
                         <div class="flex items-center gap-3 mb-5">
                             <div class="w-8 h-8 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500">
                                 <i data-lucide="pie-chart" class="w-4 h-4"></i>
                             </div>
-                            <h4 class="text-sm font-bold text-slate-800">숙성 분포</h4>
+                            <h4 class="text-sm font-bold text-slate-800">숙성 분류</h4>
                         </div>
                         <div style="height:140px">
                             <canvas id="segmentChart"></canvas>
@@ -388,7 +388,7 @@ function renderResult(data) {
         `).join('');
     }
 
-    // 숙성 분포 바 차트
+    // 숙성 바 차트
     const segment = results.segment || [];
     if (segment.length > 0) {
         document.getElementById('segmentResult').classList.remove('hidden');
@@ -501,8 +501,8 @@ function renderHistory(history) {
                         <th class="text-left py-3 pr-4">구역명</th>
                         <th class="text-left py-3 pr-4">유형</th>
                         <th class="text-left py-3 pr-4">품질 결과</th>
-                        <th class="text-left py-3 pr-4">질병</th>
-                        <th class="text-left py-3 pr-4">숙성 분포</th>
+                        <th class="text-left py-3 pr-4">잎 질병</th>
+                        <th class="text-left py-3 pr-4">숙성분류별 평균성장률</th>
                         <th class="text-left py-3">영상</th>
                     </tr>
                 </thead>
@@ -520,12 +520,14 @@ function renderHistory(history) {
                                 ${h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join(', ') : '-'}
                             </td>
                             <td class="py-3 pr-4">
-                                ${h.disease&&h.disease.length>0
-                                    ?`<span class="text-red-500 font-bold text-xs">${h.disease.length}종 감지</span>`
-                                    :'<span class="text-green-600 font-bold text-xs">이상없음</span>'}
+                                ${h.shot_type === 'zoom'
+                                    ? (h.disease && h.disease.length > 0
+                                        ? `<span class="text-red-500 font-bold text-xs">${h.disease.length}종 감지</span>`
+                                        : '<span class="text-green-600 font-bold text-xs">이상없음</span>')
+                                    : '<span class="text-slate-400 text-xs">-</span>'}
                             </td>
                             <td class="py-3 pr-4 text-slate-600 text-xs">
-                                ${h.segment ? h.segment.map(s=>`${({"tom_fruit_breaker_poly":"Green","tom_fruit_pink_poly":"Pink","tom_fruit_red_poly":"Red"})[s.class_name]||s.class_name} ${s.count}개 (성장률 ${s.avg_growth||0}%)`).join(', ') : '-'}                            </td>
+                                ${h.segment ? h.segment.map(s=>`${({"tom_fruit_breaker_poly":"Green","tom_fruit_pink_poly":"Pink","tom_fruit_red_poly":"Red"})[s.class_name]||s.class_name} ${s.count}개 (${s.avg_growth||0}%)`).join(', ') : '-'}                            </td>
                             <td class="py-3">
                                 <button onclick="playHistoryVideo(${h.session_id}, '${h.video_path||''}')"
                                     class="flex items-center gap-1 text-xs font-bold ${h.video_path?'text-green-600 hover:text-green-700':'text-slate-300 cursor-default'} transition-colors">
