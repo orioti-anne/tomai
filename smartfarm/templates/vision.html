@@ -261,6 +261,9 @@ const SEG_NAME_MAP = {
 
 function onCultChange(val) {
     selectedCultId = val;
+    clearResults();
+    showVideoState('videoPlaceholder');
+    document.getElementById('videoStatus').textContent = '';
     loadHistory();
     loadZones();
 }
