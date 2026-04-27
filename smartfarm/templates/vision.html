@@ -611,7 +611,7 @@ function generateInsight(quality, disease, segment, shotType) {
     const avgSize = redSeg ? redSeg.avg_growth : 0;
     const diseaseCount = disease.length;
 
-    const sizeType = avgSize > 90 ? '성숙 ' : avgSize > 70 ? '성장 중기' : '성장 초기';
+    const sizeStatus = avgSize > 90 ? '성숙 ' : avgSize > 70 ? '성장 중기' : '성장 초기';
     const normalizedSize = Math.min(avgSize / 100, 1);
 
     const harvestIndex = (ripe/100 * 0.7) + (halfRipe/100 * 0.2) + (normalizedSize * 0.1);
