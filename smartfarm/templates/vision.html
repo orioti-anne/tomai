@@ -396,6 +396,11 @@ async function analyzeVision() {
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
+        videoFile = null; // 변수 초기화
+        document.getElementById('videoInput').value = ''; // input 태그 비우기
+        document.getElementById('fileName').classList.add('hidden'); // 파일명 숨기기
+        document.getElementById('dropZone').classList.remove('border-green-400', 'bg-green-50'); // 강조 UI 해제
+
         renderResult(data);
         loadHistory();
 
