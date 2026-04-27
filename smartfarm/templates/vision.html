@@ -626,7 +626,7 @@ function generateInsight(quality, disease, segment, shotType) {
         ).reduce((sum, q) => sum + q.ratio, 0);
 
         const harvestIndex = (ripe/100 * 0.8) + (halfRipe/100 * 0.2);
-        const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.7)));
+        const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));
         const displayProb = (harvestProb * 100).toFixed(1);
 
         let parts = [];
