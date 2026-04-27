@@ -295,7 +295,7 @@ def index():
         .join(Farms, Cultivations.farm_id == Farms.farm_id)
         .filter(
             Farms.user_id == g.user.user_id,
-            Cultivations.status == 'hidden'
+            Cultivations.status != 'hidden'
         )
         .all()
     )
