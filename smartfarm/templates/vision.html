@@ -568,10 +568,13 @@ function loadHistoryDetail(sessionId) {
 
 
 function generateInsight(quality, disease, segment, shotType) {
+    // 1. 공통 데이터 추출
+    const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;
+    const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;
+    const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;
+
+    // 2. Wide 촬영 유형 분석
     if (shotType === 'wide') {
-        const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;
-        const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;
-        const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;
         const defect = quality.filter(q =>
             ['rotten','blossom_end_rot','fruit_cracking','sunscald','brown_rugose','mold','anthracnose'].includes(q.class_name)
         ).reduce((sum, q) => sum + q.ratio, 0);
@@ -582,68 +585,142 @@ function generateInsight(quality, disease, segment, shotType) {
 
         let parts = [];
 
-        if (defect >= 10) parts.push(`⚠️ 불량과 비율 ${defect.toFixed(1)}% — 품질 관리가 필요합니다.`);
+        // 위험 알림
+        if (defect > 0) parts.push(`⚠️ 결함 과실 발견(${defect.toFixed(1)}%) — 구역 관리가 필요합니다.`);
 
-        if (ripe >= 80) {
-            parts.push(`완숙 비율 ${ripe}%로 수확 적기입니다.`);
-        } else if (ripe >= 50 && halfRipe >= 20) {
-            parts.push(`완숙 ${ripe}% · 반숙 ${halfRipe}% — 순차 수확이 가능한 상태입니다.`);
-        } else if (halfRipe >= 50) {
-            parts.push(`반숙 비율 ${halfRipe}% — 2~3일 내 수확 적기 도달이 예상됩니다.`);
-        } else if (unripe >= 70) {
-            parts.push(`미숙과 비율 ${unripe}% — 아직 성장 중입니다.`);
-        }
+        // 품질 상태별 메시지
+        if (ripe >= 80) parts.push(`완숙 비율 ${ripe}%로 수확 적기입니다.`);
+        else if (ripe + halfRipe >= 50) parts.push(`완숙/반숙 과실이 50% 이상으로 선별 수확이 가능한 상태입니다.`);
+        else if (unripe >= 70) parts.push(`미숙과 비율이 높아 아직 성장 중인 구역입니다.`);
 
+        // 종합 지표
         parts.push(`수확 지수 ${harvestIndex.toFixed(2)} · 수확 필요 확률 ${displayProb}%`);
 
-        if (harvestProb >= 0.8) parts.push(`🔴 수확을 시작하세요.`);
-        else if (harvestProb >= 0.5) parts.push(`🟡 수확 준비를 권장합니다.`);
+        // 아이콘 권장사항
+        if (harvestProb >= 0.8) parts.push(`🔴 즉시 수확을 권장합니다.`);
+        else if (harvestProb >= 0.5) parts.push(`🟡 수확 준비를 시작하세요.`);
         else parts.push(`🟢 현재 상태가 안정적입니다.`);
 
         return parts.join(' · ');
     }
 
-
-    // zoom 분석
-    const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;
-    const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;
-    const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;
+    // 3. Zoom 촬영 유형 분석 (고도화)
     const redSeg = segment.find(s => s.class_name === 'tom_fruit_red_poly');
     const avgSize = redSeg ? redSeg.avg_growth : 0;
     const diseaseCount = disease.length;
 
-    // 가중치
-    const w1 = 0.7, w2 = 0.2, w3 = 0.1;
+    // 사이즈 분류 (소과/중과/대과)
+    const sizeType = avgSize > 90 ? '대과' : avgSize > 70 ? '중과' : '소과';
     const normalizedSize = Math.min(avgSize / 100, 1);
 
-    // 수확 지수
-    let harvestIndex = (ripe/100 * w1) + (halfRipe/100 * w2) + (normalizedSize * w3);
-
-    // 수확 시급도 확률 (시그모이드)
-    let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));
-    let displayProb = (harvestProb * 100).toFixed(1);
+    // 수확 지표 계산
+    const harvestIndex = (ripe/100 * 0.7) + (halfRipe/100 * 0.2) + (normalizedSize * 0.1);
+    const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));
+    const displayProb = (harvestProb * 100).toFixed(1);
 
     let insight = '';
 
-    // 질병 위험도
+    // 질병 및 위험 분석
     if (diseaseCount > 0) {
-        let lossRisk = (diseaseCount * 0.1 * (1 - ripe/100) * 100).toFixed(1);
+        const lossRisk = (diseaseCount * 15 * (unripe/100)).toFixed(1);
         insight += `⚠️ ${diseaseCount}종 질병 감지 · 미숙과 손실 위험 ${lossRisk}%\n`;
     }
 
-    // 수확 시급도
+    // 생육 상세 분석
+    insight += `🔍 생육 상태: ${sizeType} 단계 (완숙 대비 크기 ${avgSize.toFixed(1)}%)\n`;
+
+    // 종합 지수 및 행동 제언
+    const icon = harvestProb >= 0.8 ? '🔴' : harvestProb >= 0.5 ? '🟡' : '🟢';
+    insight += `${icon} 수확 지수 ${harvestIndex.toFixed(2)} — `;
+
     if (harvestProb >= 0.8) {
-        insight += `🔴 수확 지수 ${harvestIndex.toFixed(2)} — 완숙도가 높습니다. 수확을 시작하세요. (수확 필요 확률 ${displayProb}%)`;
+        insight += `완숙도와 크기가 최상입니다. 수확을 시작하세요. (확률 ${displayProb}%)`;
     } else if (harvestProb >= 0.5) {
-        insight += `🟡 수확 지수 ${harvestIndex.toFixed(2)} — 수확 적기가 가까워지고 있습니다. 수확을 준비하세요. (수확 필요 확률 ${displayProb}%)`;
+        insight += `수확 적기에 도달 중입니다. 선별 수확을 준비하세요. (확률 ${displayProb}%)`;
     } else {
-        insight += `🟢 수확 지수 ${harvestIndex.toFixed(2)} — 현재 상태가 안정적입니다. 지속적으로 모니터링 해주세요. (수확 필요 확률 ${displayProb}%)`;
+        insight += `성장 단계입니다. 지속적인 모니터링이 필요합니다. (확률 ${displayProb}%)`;
     }
-
-
 
     return insight;
 }
+
+<!--function generateInsight(quality, disease, segment, shotType) {-->
+<!--    if (shotType === 'wide') {-->
+<!--        const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;-->
+<!--        const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;-->
+<!--        const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;-->
+<!--        const defect = quality.filter(q =>-->
+<!--            ['rotten','blossom_end_rot','fruit_cracking','sunscald','brown_rugose','mold','anthracnose'].includes(q.class_name)-->
+<!--        ).reduce((sum, q) => sum + q.ratio, 0);-->
+
+<!--        const harvestIndex = (ripe/100 * 0.8) + (halfRipe/100 * 0.2);-->
+<!--        const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.7)));-->
+<!--        const displayProb = (harvestProb * 100).toFixed(1);-->
+
+<!--        let parts = [];-->
+
+<!--        if (defect >= 10) parts.push(`⚠️ 불량과 비율 ${defect.toFixed(1)}% — 품질 관리가 필요합니다.`);-->
+
+<!--        if (ripe >= 80) {-->
+<!--            parts.push(`완숙 비율 ${ripe}%로 수확 적기입니다.`);-->
+<!--        } else if (ripe >= 50 && halfRipe >= 20) {-->
+<!--            parts.push(`완숙 ${ripe}% · 반숙 ${halfRipe}% — 순차 수확이 가능한 상태입니다.`);-->
+<!--        } else if (halfRipe >= 50) {-->
+<!--            parts.push(`반숙 비율 ${halfRipe}% — 2~3일 내 수확 적기 도달이 예상됩니다.`);-->
+<!--        } else if (unripe >= 70) {-->
+<!--            parts.push(`미숙과 비율 ${unripe}% — 아직 성장 중입니다.`);-->
+<!--        }-->
+
+<!--        parts.push(`수확 지수 ${harvestIndex.toFixed(2)} · 수확 필요 확률 ${displayProb}%`);-->
+
+<!--        if (harvestProb >= 0.8) parts.push(`🔴 수확을 시작하세요.`);-->
+<!--        else if (harvestProb >= 0.5) parts.push(`🟡 수확 준비를 권장합니다.`);-->
+<!--        else parts.push(`🟢 현재 상태가 안정적입니다.`);-->
+
+<!--        return parts.join(' · ');-->
+<!--    }-->
+
+
+<!--    // zoom 분석-->
+<!--    const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;-->
+<!--    const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;-->
+<!--    const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;-->
+<!--    const redSeg = segment.find(s => s.class_name === 'tom_fruit_red_poly');-->
+<!--    const avgSize = redSeg ? redSeg.avg_growth : 0;-->
+<!--    const diseaseCount = disease.length;-->
+
+<!--    // 가중치-->
+<!--    const w1 = 0.7, w2 = 0.2, w3 = 0.1;-->
+<!--    const normalizedSize = Math.min(avgSize / 100, 1);-->
+
+<!--    // 수확 지수-->
+<!--    let harvestIndex = (ripe/100 * w1) + (halfRipe/100 * w2) + (normalizedSize * w3);-->
+
+<!--    // 수확 시급도 확률 (시그모이드)-->
+<!--    let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));-->
+<!--    let displayProb = (harvestProb * 100).toFixed(1);-->
+
+<!--    let insight = '';-->
+
+<!--    // 질병 위험도-->
+<!--    if (diseaseCount > 0) {-->
+<!--        let lossRisk = (diseaseCount * 0.1 * (1 - ripe/100) * 100).toFixed(1);-->
+<!--        insight += `⚠️ ${diseaseCount}종 질병 감지 · 미숙과 손실 위험 ${lossRisk}%\n`;-->
+<!--    }-->
+
+<!--    // 수확 시급도-->
+<!--    if (harvestProb >= 0.8) {-->
+<!--        insight += `🔴 수확 지수 ${harvestIndex.toFixed(2)} — 완숙도가 높습니다. 수확을 시작하세요. (수확 필요 확률 ${displayProb}%)`;-->
+<!--    } else if (harvestProb >= 0.5) {-->
+<!--        insight += `🟡 수확 지수 ${harvestIndex.toFixed(2)} — 수확 적기가 가까워지고 있습니다. 수확을 준비하세요. (수확 필요 확률 ${displayProb}%)`;-->
+<!--    } else {-->
+<!--        insight += `🟢 수확 지수 ${harvestIndex.toFixed(2)} — 현재 상태가 안정적입니다. 지속적으로 모니터링 해주세요. (수확 필요 확률 ${displayProb}%)`;-->
+<!--    }-->
+
+
+
+<!--    return insight;-->
+<!--}-->
 
 
 
