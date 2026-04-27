@@ -672,14 +672,14 @@ function generateInsight(quality, disease, segment, shotType) {
     }
 
     if (avgSize > 0) {
-        insight += `🔍 주요 과실 규격: ${sizeStatus} 단계\n`;
+        insight += `🔍 주요 과실: ${sizeStatus} 단계\n`;
     }
 
     const icon = harvestProb >= 0.8 ? '🔴' : harvestProb >= 0.5 ? '🟡' : '🟢';
     insight += `${icon} 수확 지수 ${harvestIndex.toFixed(2)} — `;
 
     if (harvestProb >= 0.8) {
-        insight += `완숙도와 크기가 최상입니다. 수확을 시작하세요. (확률 ${displayProb}%)`;
+        insight += `완숙도가 최상입니다. 수확을 시작하세요. (확률 ${displayProb}%)`;
     } else if (harvestProb >= 0.5) {
         insight += `수확 적기에 도달 중입니다. 선별 수확을 준비하세요. (확률 ${displayProb}%)`;
     } else {
