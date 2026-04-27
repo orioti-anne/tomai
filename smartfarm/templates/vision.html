@@ -366,9 +366,9 @@ async function analyzeVision() {
 
         if (!confirm(confirmMsg)) {
             return;
-
-
+    }
     clearResults();
+
     showVideoState('analysisLoading');
     document.getElementById('resultSection').classList.add('hidden');
     document.getElementById('videoStatus').textContent = '';
