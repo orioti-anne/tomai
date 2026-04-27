@@ -569,7 +569,7 @@ function loadHistoryDetail(sessionId) {
 
 function generateInsight(quality, disease, segment, shotType) {
     if (shotType === 'wide') {
-        // wide는 질병/세그 없으니 품질만으로 간단 인사이트
+        // wide는 품질만으로 간단 인사이트
         const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;
         const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;
         const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;
@@ -590,10 +590,10 @@ function generateInsight(quality, disease, segment, shotType) {
 
     // 가중치
     const w1 = 0.7, w2 = 0.2, w3 = 0.1;
-    const standardSize = 80;
+    const normalizedSize = Math.min(avgSize / 100, 1);
 
     // 수확 지수
-    let harvestIndex = (ripe/100 * w1) + (halfRipe/100 * w2) + (avgSize/standardSize * w3);
+    let harvestIndex = (ripe/100 * w1) + (halfRipe/100 * w2) + (normalizedSize * w3);
 
     // 수확 시급도 확률 (시그모이드)
     let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.7)));
