@@ -40,16 +40,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    const saved = localStorage.getItem('selectedCultId');
-    if (saved) {
-        cultSelects.forEach(id => {
-            const el = document.getElementById(id);
-            if (el && [...el.options].some(o => o.value === saved)) {
-                el.value = saved;
-                if (id === 'cultSelect') {
-                    onCultChange && onCultChange(saved);
+    // 페이지 로드 시 복원
+        const saved = localStorage.getItem('selectedCultId');
+        if (saved) {
+            cultSelects.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && [...el.options].some(o => o.value === saved)) {
+                    if (id === 'cult_id' && !window.location.search.includes('cult_id')) {
+                        window.location.href = window.location.pathname + '?cult_id=' + saved;
+                        return;
+                    }
+                    el.value = saved;
+                    if (id === 'cultSelect' && typeof onCultChange === 'function') {
+                        onCultChange(saved);
+                    }
                 }
-            }
-        });
-    }
+            });
+        }
 });
