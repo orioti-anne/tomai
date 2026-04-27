@@ -576,37 +576,33 @@ function generateInsight(quality, disease, segment, shotType) {
             ['rotten','blossom_end_rot','fruit_cracking','sunscald','brown_rugose','mold','anthracnose'].includes(q.class_name)
         ).reduce((sum, q) => sum + q.ratio, 0);
 
-        // 수확 지수 (wide는 세그 없으므로 품질만)
         const harvestIndex = (ripe/100 * 0.8) + (halfRipe/100 * 0.2);
         const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.7)));
         const displayProb = (harvestProb * 100).toFixed(1);
 
-        let insight = '';
+        let parts = [];
 
-        // 불량과 경고
-        if (defect >= 10) {
-            insight += `불량과(부패/병해) 비율이 ${defect.toFixed(1)}%로 품질 관리가 필요합니다. `;
-        }
+        if (defect >= 10) parts.push(`⚠️ 불량과 비율 ${defect.toFixed(1)}% — 품질 관리가 필요합니다.`);
 
-        // 수확 판단
         if (ripe >= 80) {
-            insight += `완숙 비율 ${ripe}%로 즉시 수확을 권장합니다. `;
+            parts.push(`완숙 비율 ${ripe}%로 수확 적기입니다.`);
         } else if (ripe >= 50 && halfRipe >= 20) {
-            insight += `완숙 ${ripe}% · 반숙 ${halfRipe}%로 순차 수확이 가능한 상태입니다. `;
+            parts.push(`완숙 ${ripe}% · 반숙 ${halfRipe}% — 순차 수확이 가능한 상태입니다.`);
         } else if (halfRipe >= 50) {
-            insight += `반숙 비율이 ${halfRipe}%로 2~3일 내 수확 적기에 도달할 것으로 예측됩니다. `;
+            parts.push(`반숙 비율 ${halfRipe}% — 2~3일 내 수확 적기 도달이 예상됩니다.`);
         } else if (unripe >= 70) {
-            insight += `미숙과 비율이 ${unripe}%로 아직 성장 중입니다. `;
+            parts.push(`미숙과 비율 ${unripe}% — 아직 성장 중입니다.`);
         }
 
-        insight += `종합 수확 지수 ${harvestIndex.toFixed(2)} · 24시간 내 수확 필요 확률 ${displayProb}%.`;
+        parts.push(`수확 지수 ${harvestIndex.toFixed(2)} · 수확 필요 확률 ${displayProb}%`);
 
-        if (harvestProb >= 0.8) insight += ` 🔴 즉시 수확을 권장합니다.`;
-        else if (harvestProb >= 0.5) insight += ` 🟡 수확 준비를 시작하세요.`;
-        else insight += ` 🟢 현재 상태가 안정적입니다.`;
+        if (harvestProb >= 0.8) parts.push(`🔴 수확을 시작하세요.`);
+        else if (harvestProb >= 0.5) parts.push(`🟡 수확 준비를 권장합니다.`);
+        else parts.push(`🟢 현재 상태가 안정적입니다.`);
 
-        return insight;
+        return parts.join(' · ');
     }
+
 
     // zoom 분석
     const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;
