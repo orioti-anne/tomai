@@ -230,8 +230,11 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 import numpy as np
                 nparr = np.frombuffer(video_bytes, np.uint8)
                 frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if frame.shape[1] > 640:
+                    ratio = 640 / frame.shape[1]
+                    frame = cv2.resize(frame, (640, int(frame.shape[0] * ratio)))
                 result = process_frame(frame)
-                cv2.imwrite(output_path, result)
+                cv2.imwrite(output_path, result, [cv2.IMWRITE_JPEG_QUALITY, 70])
             else:
                 # 영상 처리
                 with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
@@ -240,15 +243,22 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
 
                 cap = cv2.VideoCapture(tmp_path)
                 fps = cap.get(cv2.CAP_PROP_FPS)
-                w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'avc1'), fps, (w, h))
+
+                orig_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+                orig_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+                target_w = 640
+                target_h = int(orig_h * (target_w / orig_w))
+
+                out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'avc1'), fps, (target_w, target_h))
+
 
                 while cap.isOpened():
                     ret, frame = cap.read()
                     if not ret:
                         break
-                    result = process_frame(frame)
+                    frame_resized = cv2.resize(frame, (target_w, target_h))
+                    result = process_frame(frame_resized)
                     out.write(result)
 
                 cap.release()
