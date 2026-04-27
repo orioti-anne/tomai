@@ -415,7 +415,7 @@ function renderResult(data) {
     // AI 인사이트
     const insight = generateInsight(quality, disease, segment, data.shot_type);
     document.getElementById('insightSection').classList.remove('hidden');
-    document.getElementById('insightText').textContent = insight;
+    document.getElementById('insightText').innerHTML = insight.replace(/\n/g, '<br>');
 
     document.getElementById('resultSection').classList.remove('hidden');
     document.getElementById('resultMeta').textContent =
@@ -604,20 +604,29 @@ function generateInsight(quality, disease, segment, shotType) {
     // 질병 위험도
     if (diseaseCount > 0) {
         let lossRisk = (diseaseCount * 0.1 * (1 - ripe/100) * 100).toFixed(1);
-        insight += `질병 ${diseaseCount}종 감지로 인한 미숙과 손실 위험도 ${lossRisk}%. `;
+        insight += `⚠️ ${diseaseCount}종 질병 감지 · 미숙과 손실 위험 ${lossRisk}%\n`;
     }
 
-    // 수확 지수 + 시급도
-    insight += `종합 수확 지수 ${harvestIndex.toFixed(2)} · 24시간 내 수확 필요 확률 ${displayProb}%.`;
-
-    // 행동 제안
+    // 수확 시급도
     if (harvestProb >= 0.8) {
-        insight += ` 🔴 즉시 수확을 권장합니다.`;
+        insight += `🔴 수확 지수 ${harvestIndex.toFixed(2)} — 지금 즉시 수확하지 않으면 과숙으로 인한 상품성 하락이 우려됩니다. (수확 필요 확률 ${displayProb}%)`;
     } else if (harvestProb >= 0.5) {
-        insight += ` 🟡 수확 준비를 시작하세요.`;
+        insight += `🟡 수확 지수 ${harvestIndex.toFixed(2)} — 수확 적기가 가까워지고 있습니다. 수확 준비를 시작하세요. (수확 필요 확률 ${displayProb}%)`;
     } else {
-        insight += ` 🟢 현재 상태가 안정적입니다.`;
+        insight += `🟢 수확 지수 ${harvestIndex.toFixed(2)} — 현재 상태가 안정적입니다. 지속적인 모니터링을 권장합니다. (수확 필요 확률 ${displayProb}%)`;
     }
+
+<!--    // 수확 지수 + 시급도-->
+<!--    insight += `종합 수확 지수 ${harvestIndex.toFixed(2)} · 24시간 내 수확 필요 확률 ${displayProb}%.`;-->
+
+<!--    // 행동 제안-->
+<!--    if (harvestProb >= 0.8) {-->
+<!--        insight += ` 🔴 즉시 수확을 권장합니다.`;-->
+<!--    } else if (harvestProb >= 0.5) {-->
+<!--        insight += ` 🟡 수확 준비를 시작하세요.`;-->
+<!--    } else {-->
+<!--        insight += ` 🟢 현재 상태가 안정적입니다.`;-->
+<!--    }-->
 
     return insight;
 }
