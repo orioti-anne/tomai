@@ -29,6 +29,30 @@
                 </div>
             </div>
 
+
+            <div class="swiper-slide relative flex items-center bg-slate-900">
+                <div class="absolute inset-0 opacity-35 bg-cover bg-center" style="background-image: url('{{ url_for('static', filename='tomato.png') }}');"></div>
+                <div class="relative px-8 py-16 md:px-20 text-white w-full">
+                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500/20 border border-green-500/50 text-green-300 text-xs font-semibold mb-8">
+                        <i data-lucide="scan-eye" class="w-3.5 h-3.5"></i>
+                        AI Vision Analysis
+                    </div>
+                    <h1 class="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+                        AI <span class="text-green-400">Vision</span>
+                    </h1>
+                    <p class="text-white/70 text-ml md:text-lg max-w-2xl leading-relaxed mb-10">
+                        영상 한 장으로 과실의 품질, 질병, 크기를 동시에 분석합니다.<br class="hidden sm:block">
+                        Triple-Stream 추론으로 수확 적기와 병해 위험도를 즉시 판단하세요.
+                    </p>
+                    <div class="flex flex-wrap gap-4">
+                        <a href="/vision" class="bg-green-600 hover:bg-green-700 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg flex items-center gap-2">
+                            <i data-lucide="play-circle"></i> 영상 분석하기
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+
             <div class="swiper-slide relative flex items-center bg-slate-900">
                 <div class="absolute inset-0 opacity-30 bg-cover bg-center" style="background-image: url('{{ url_for('static', filename='tomato_growth.png') }}');"></div>
                 <div class="relative px-8 py-16 md:px-20 text-white w-full">
