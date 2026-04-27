@@ -46,7 +46,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const el = document.getElementById(id);
             if (el && [...el.options].some(o => o.value === saved)) {
                 el.value = saved;
-                el.dispatchEvent(new Event('change'));
+                if (id === 'cultSelect') {
+                    onCultChange && onCultChange(saved);
+                }
             }
         });
     }
