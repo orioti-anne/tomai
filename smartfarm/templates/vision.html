@@ -442,7 +442,7 @@ function renderResult(data) {
 
     document.getElementById('resultSection').classList.remove('hidden');
     document.getElementById('resultMeta').textContent =
-        results.total_frames ? `총 ${results.total_frames}프레임 중 ${results.analyzed_frames}프레임 분석` : '';
+        results.total_frames ? `핵심 프레임 ${results.analyzed_frames}건 정밀 스캔 기반 결과` : '';
 
     // 품질 차트
     if (quality.length > 0) {

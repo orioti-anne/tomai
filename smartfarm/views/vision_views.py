@@ -242,7 +242,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                     tmp_path = tmp.name
 
                 cap = cv2.VideoCapture(tmp_path)
-                fps = cap.get(cv2.CAP_PROP_FPS)
+                fps = cap.get(cv2.CAP_PROP_FPS) /2
 
                 orig_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 orig_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -252,11 +252,14 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
 
                 out = cv2.VideoWriter(output_path, cv2.VideoWriter_fourcc(*'avc1'), fps, (target_w, target_h))
 
-
+                frame_count = 0
                 while cap.isOpened():
                     ret, frame = cap.read()
                     if not ret:
                         break
+                    frame_count += 1
+                    if frame_count % 2 != 0: continue  # 2프레임당 1개만 저장 (용량 50% 삭제)
+
                     frame_resized = cv2.resize(frame, (target_w, target_h))
                     result = process_frame(frame_resized)
                     out.write(result)
