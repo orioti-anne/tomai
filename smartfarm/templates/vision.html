@@ -624,7 +624,7 @@ function generateInsight(quality, disease, segment, shotType) {
     let harvestIndex = (ripe/100 * w1) + (halfRipe/100 * w2) + (normalizedSize * w3);
 
     // 수확 시급도 확률 (시그모이드)
-    let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.5)));
+    let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));
     let displayProb = (harvestProb * 100).toFixed(1);
 
     let insight = '';
@@ -637,24 +637,14 @@ function generateInsight(quality, disease, segment, shotType) {
 
     // 수확 시급도
     if (harvestProb >= 0.8) {
-        insight += `🔴 수확 지수 ${harvestIndex.toFixed(2)} — 지금 즉시 수확하지 않으면 과숙으로 인한 상품성 하락이 우려됩니다. (수확 필요 확률 ${displayProb}%)`;
+        insight += `🔴 수확 지수 ${harvestIndex.toFixed(2)} — 완숙도가 높습니다. 수확을 시작하세요. (수확 필요 확률 ${displayProb}%)`;
     } else if (harvestProb >= 0.5) {
-        insight += `🟡 수확 지수 ${harvestIndex.toFixed(2)} — 수확 적기가 가까워지고 있습니다. 수확 준비를 시작하세요. (수확 필요 확률 ${displayProb}%)`;
+        insight += `🟡 수확 지수 ${harvestIndex.toFixed(2)} — 수확 적기가 가까워지고 있습니다. 수확을 준비하세요. (수확 필요 확률 ${displayProb}%)`;
     } else {
-        insight += `🟢 수확 지수 ${harvestIndex.toFixed(2)} — 현재 상태가 안정적입니다. 지속적인 모니터링을 권장합니다. (수확 필요 확률 ${displayProb}%)`;
+        insight += `🟢 수확 지수 ${harvestIndex.toFixed(2)} — 현재 상태가 안정적입니다. 지속적으로 모니터링 해주세요. (수확 필요 확률 ${displayProb}%)`;
     }
 
-<!--    // 수확 지수 + 시급도-->
-<!--    insight += `종합 수확 지수 ${harvestIndex.toFixed(2)} · 24시간 내 수확 필요 확률 ${displayProb}%.`;-->
 
-<!--    // 행동 제안-->
-<!--    if (harvestProb >= 0.8) {-->
-<!--        insight += ` 🔴 즉시 수확을 권장합니다.`;-->
-<!--    } else if (harvestProb >= 0.5) {-->
-<!--        insight += ` 🟡 수확 준비를 시작하세요.`;-->
-<!--    } else {-->
-<!--        insight += ` 🟢 현재 상태가 안정적입니다.`;-->
-<!--    }-->
 
     return insight;
 }
