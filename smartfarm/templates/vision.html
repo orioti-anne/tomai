@@ -279,6 +279,11 @@ const SEG_NAME_MAP = {
 function onCultChange(val) {
     selectedCultId = val;
     clearResults();
+    document.getElementById('zoneInput').value = '';
+    document.getElementById('zoneSelect').value = '';
+    videoFile = null;
+    document.getElementById('fileName').classList.add('hidden');
+    document.getElementById('dropZone').classList.remove('border-green-400', 'bg-green-50');
     showVideoState('videoPlaceholder');
     document.getElementById('videoStatus').textContent = '';
     loadHistory();
