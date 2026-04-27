@@ -60,6 +60,12 @@
                             근접 zoom
                         </button>
                     </div>
+                    <div id="shotTypeGuide" class="mt-2 px-3 py-2 bg-blue-50/50 rounded-lg border border-blue-100">
+                        <p id="guideText" class="text-[11px] text-slate-500 leading-relaxed font-medium">
+                            <i data-lucide="info" class="w-3 h-3 inline-block mr-1 mb-0.5"></i>
+                            <span>구역 Wide: 전체적인 수확 확률과 품질 분포 분석에 최적화되어 있습니다.</span>
+                        </p>
+                    </div>
                 </div>
 
                 <!-- 업로드 -->
@@ -297,12 +303,21 @@ document.getElementById('zoneInput').addEventListener('input', function() {
 
 function setShotType(type) {
     shotType = type;
+    const guideEl = document.getElementById('guideText').querySelector('span');
+    const guideBox = document.getElementById('shotTypeGuide');
+
     if (type === 'wide') {
         document.getElementById('btnWide').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600';
         document.getElementById('btnZoom').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
+
+        guideEl.textContent = "구역 Wide: 전체 품질 분포 분석에 최적화되어 있습니다.";
+        guideBox.className = "mt-2 px-3 py-2 bg-blue-50/50 rounded-lg border border-blue-100 transition-all duration-300";
     } else {
         document.getElementById('btnZoom').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-purple-400 bg-purple-50 text-purple-600';
         document.getElementById('btnWide').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
+
+        guideEl.textContent = "근접 Zoom: 과실 성장과 잎 질병 유무를 정밀 진단합니다.";
+        guideBox.className = "mt-2 px-3 py-2 bg-purple-50/50 rounded-lg border border-purple-100 transition-all duration-300";
     }
 }
 
@@ -357,18 +372,7 @@ async function analyzeVision() {
     if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
     if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
 
-    const modeName = (shotType === 'wide') ? '구역 wide (전체 분포 분석)' : '근접 zoom (개체 정밀 진단)';
-        const modeDesc = (shotType === 'wide')
-            ? '전체 분포 분석: 수확 확률과 품질 분포를 분석합니다.'
-            : '개체 정밀 진단 모드: 성장 분포 및 토마토 잎 질병 유무를 정밀 진단합니다.';
-
-        const confirmMsg = `현재 선택된 유형: ${modeName}\n\n${modeDesc}\n\n촬영한 영상과 선택한 유형이 일치합니까?`;
-
-        if (!confirm(confirmMsg)) {
-            return;
-    }
     clearResults();
-
     showVideoState('analysisLoading');
     document.getElementById('resultSection').classList.add('hidden');
     document.getElementById('videoStatus').textContent = '';
