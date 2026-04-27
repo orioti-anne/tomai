@@ -375,6 +375,15 @@ async function deleteSession(sessionId) {
 
 async function analyzeVision() {
     if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
+
+    const zoneName = document.getElementById('zoneInput').value.trim();
+    if (!zoneName) {
+        alert('분석할 구역명을 입력하거나 선택해주세요.\n(예: A-1구역, 온실 1번 등)');
+        document.getElementById('zoneInput').focus();
+        return;
+    }
+
+
     if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
 
     clearResults();
