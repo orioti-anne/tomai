@@ -596,7 +596,7 @@ function generateInsight(quality, disease, segment, shotType) {
     let harvestIndex = (ripe/100 * w1) + (halfRipe/100 * w2) + (normalizedSize * w3);
 
     // 수확 시급도 확률 (시그모이드)
-    let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.7)));
+    let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.5)));
     let displayProb = (harvestProb * 100).toFixed(1);
 
     let insight = '';
