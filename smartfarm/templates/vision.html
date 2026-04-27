@@ -396,6 +396,7 @@ function startPolling(sessionId) {
 }
 
 function clearResults() {
+    document.getElementById('insightSection').classList.add('hidden');
     document.getElementById('resultSection').classList.add('hidden');
     document.getElementById('qualityResult').classList.add('hidden');
     document.getElementById('segmentResult').classList.add('hidden');
@@ -406,18 +407,21 @@ function clearResults() {
 }
 
 function renderResult(data) {
-    // 인사이트 표시
+    const results = data.results;
+    const quality = results.quality || [];
+    const segment = results.segment || [];
+    const disease = results.disease || [];
+
+    // AI 인사이트
     const insight = generateInsight(quality, disease, segment, data.shot_type);
     document.getElementById('insightSection').classList.remove('hidden');
     document.getElementById('insightText').textContent = insight;
 
-
-    const results = data.results;
     document.getElementById('resultSection').classList.remove('hidden');
     document.getElementById('resultMeta').textContent =
         results.total_frames ? `총 ${results.total_frames}프레임 중 ${results.analyzed_frames}프레임 분석` : '';
 
-    const quality = results.quality || [];
+    // 품질 차트
     if (quality.length > 0) {
         document.getElementById('qualityResult').classList.remove('hidden');
         const labels = quality.map(q => QUALITY_LABEL[q.class_name] || q.class_name);
@@ -447,7 +451,7 @@ function renderResult(data) {
         `).join('');
     }
 
-    const segment = results.segment || [];
+    // 세그 차트
     if (segment.length > 0) {
         document.getElementById('segmentResult').classList.remove('hidden');
         const segLabels = segment.map(s => SEG_LABEL[s.class_name] || s.class_name);
@@ -476,7 +480,7 @@ function renderResult(data) {
         });
     }
 
-    const disease = results.disease || [];
+    // 질병
     if (disease.length > 0) {
         document.getElementById('diseaseResult').classList.remove('hidden');
         document.getElementById('diseaseContent').innerHTML = disease.map(d => `
