@@ -573,7 +573,7 @@ function generateInsight(quality, disease, segment, shotType) {
     const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;
     const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;
 
-    // 2. Wide 촬영 유형 분석
+    // 2. Wide 촬영 유형 분석 (줄바꿈 적용)
     if (shotType === 'wide') {
         const defect = quality.filter(q =>
             ['rotten','blossom_end_rot','fruit_cracking','sunscald','brown_rugose','mold','anthracnose'].includes(q.class_name)
@@ -592,6 +592,7 @@ function generateInsight(quality, disease, segment, shotType) {
         if (ripe >= 80) parts.push(`완숙 비율 ${ripe}%로 수확 적기입니다.`);
         else if (ripe + halfRipe >= 50) parts.push(`완숙/반숙 과실이 50% 이상으로 선별 수확이 가능한 상태입니다.`);
         else if (unripe >= 70) parts.push(`미숙과 비율이 높아 아직 성장 중인 구역입니다.`);
+        else parts.push(`전체적인 생육 상태가 안정적입니다.`);
 
         // 종합 지표
         parts.push(`수확 지수 ${harvestIndex.toFixed(2)} · 수확 필요 확률 ${displayProb}%`);
@@ -601,35 +602,31 @@ function generateInsight(quality, disease, segment, shotType) {
         else if (harvestProb >= 0.5) parts.push(`🟡 수확 준비를 시작하세요.`);
         else parts.push(`🟢 현재 상태가 안정적입니다.`);
 
-        return parts.join(' · ');
+        // 기존 ' · ' 대신 '\n'으로 변경하여 가독성 확보
+        return parts.join('\n');
     }
 
-    // 3. Zoom 촬영 유형 분석 (고도화)
+    // 3. Zoom 촬영 유형 분석 (기존 유지)
     const redSeg = segment.find(s => s.class_name === 'tom_fruit_red_poly');
     const avgSize = redSeg ? redSeg.avg_growth : 0;
     const diseaseCount = disease.length;
 
-    // 사이즈 분류 (소과/중과/대과)
-    const sizeType = avgSize > 90 ? '대과' : avgSize > 70 ? '중과' : '소과';
+    const sizeType = avgSize > 90 ? '성숙 규격' : avgSize > 70 ? '성장 중' : '성장 초기';
     const normalizedSize = Math.min(avgSize / 100, 1);
 
-    // 수확 지표 계산
     const harvestIndex = (ripe/100 * 0.7) + (halfRipe/100 * 0.2) + (normalizedSize * 0.1);
     const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));
     const displayProb = (harvestProb * 100).toFixed(1);
 
     let insight = '';
 
-    // 질병 및 위험 분석
     if (diseaseCount > 0) {
         const lossRisk = (diseaseCount * 15 * (unripe/100)).toFixed(1);
         insight += `⚠️ ${diseaseCount}종 질병 감지 · 미숙과 손실 위험 ${lossRisk}%\n`;
     }
 
-    // 생육 상세 분석
-    insight += `🔍 생육 상태: ${sizeType} 단계 (완숙 대비 크기 ${avgSize.toFixed(1)}%)\n`;
+    insight += `🔍 주요 과실 규격: ${sizeType} 단계\n`;
 
-    // 종합 지수 및 행동 제언
     const icon = harvestProb >= 0.8 ? '🔴' : harvestProb >= 0.5 ? '🟡' : '🟢';
     insight += `${icon} 수확 지수 ${harvestIndex.toFixed(2)} — `;
 
