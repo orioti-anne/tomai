@@ -295,8 +295,9 @@ def index():
         .join(Farms, Cultivations.farm_id == Farms.farm_id)
         .filter(
             Farms.user_id == g.user.user_id,
-            Cultivations.status != 'hidden'
+            Farms.is_active == 'Y'
         )
+        .filter(Cultivations.status != 'hidden')
         .all()
     )
     selected_cult = cult_list[0] if cult_list else None
