@@ -280,8 +280,20 @@ function onCultChange(val) {
 }
 
 function onZoneSelect(val) {
-    if (val) document.getElementById('zoneInput').value = val;
+    const zoneInput = document.getElementById('zoneInput');
+    zoneInput.value = val;
+    if (val === "") {
+        zoneInput.focus();
+    }
 }
+document.getElementById('zoneInput').addEventListener('input', function() {
+    const zoneSelect = document.getElementById('zoneSelect');
+    const exists = Array.from(zoneSelect.options).some(opt => opt.value === this.value);
+    if (!exists) {
+        zoneSelect.value = "";
+    }
+});
+
 
 function setShotType(type) {
     shotType = type;
@@ -344,6 +356,17 @@ async function deleteSession(sessionId) {
 async function analyzeVision() {
     if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
     if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
+
+    const modeName = (shotType === 'wide') ? '구역 wide (전체 분포 분석)' : '근접 zoom (개체 정밀 진단)';
+        const modeDesc = (shotType === 'wide')
+            ? '전체 분포 분석: 수확 확률과 품질 분포를 분석합니다.'
+            : '개체 정밀 진단 모드: 성장 분포 및 토마토 잎 질병 유무를 정밀 진단합니다.';
+
+        const confirmMsg = `현재 선택된 유형: ${modeName}\n\n${modeDesc}\n\n촬영한 영상과 선택한 유형이 일치합니까?`;
+
+        if (!confirm(confirmMsg)) {
+            return;
+
 
     clearResults();
     showVideoState('analysisLoading');
