@@ -136,6 +136,17 @@
                 </div>
             </div>
 
+            <!-- 인사이트 -->
+            <div id="insightSection" class="hidden bg-gradient-to-r from-green-50 to-emerald-50 rounded-[2rem] border border-green-100 p-6">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-8 h-8 bg-green-600 rounded-xl flex items-center justify-center text-white">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i>
+                    </div>
+                    <h4 class="text-sm font-bold text-green-800">AI 인사이트</h4>
+                </div>
+                <p id="insightText" class="text-sm text-green-900 leading-relaxed font-medium"></p>
+            </div>
+
             <!-- 분석 결과 차트 -->
             <div id="resultSection" class="hidden space-y-5">
 
@@ -395,6 +406,12 @@ function clearResults() {
 }
 
 function renderResult(data) {
+    // 인사이트 표시
+    const insight = generateInsight(quality, disease, segment, data.shot_type);
+    document.getElementById('insightSection').classList.remove('hidden');
+    document.getElementById('insightText').textContent = insight;
+
+
     const results = data.results;
     document.getElementById('resultSection').classList.remove('hidden');
     document.getElementById('resultMeta').textContent =
@@ -544,6 +561,65 @@ function loadHistoryDetail(sessionId) {
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+
+function generateInsight(quality, disease, segment, shotType) {
+    if (shotType === 'wide') {
+        // wide는 질병/세그 없으니 품질만으로 간단 인사이트
+        const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;
+        const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;
+        const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;
+
+        if (ripe >= 80) return `완숙 비율이 ${ripe}%로 수확 적기입니다. 조속한 수확을 권장합니다.`;
+        if (halfRipe >= 50) return `반숙 비율이 ${halfRipe}%로 2~3일 내 수확 적기에 도달할 것으로 예측됩니다.`;
+        if (unripe >= 70) return `미숙과 비율이 ${unripe}%로 아직 성장 중입니다. 수확까지 충분한 시간이 필요합니다.`;
+        return `품질 분포가 고르게 나타나고 있습니다.`;
+    }
+
+    // zoom 분석
+    const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;
+    const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;
+    const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;
+    const redSeg = segment.find(s => s.class_name === 'tom_fruit_red_poly');
+    const avgSize = redSeg ? redSeg.avg_growth : 0;
+    const diseaseCount = disease.length;
+
+    // 가중치
+    const w1 = 0.7, w2 = 0.2, w3 = 0.1;
+    const standardSize = 80;
+
+    // 수확 지수
+    let harvestIndex = (ripe/100 * w1) + (halfRipe/100 * w2) + (avgSize/standardSize * w3);
+
+    // 수확 시급도 확률 (시그모이드)
+    let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.7)));
+    let displayProb = (harvestProb * 100).toFixed(1);
+
+    let insight = '';
+
+    // 질병 위험도
+    if (diseaseCount > 0) {
+        let lossRisk = (diseaseCount * 0.1 * (1 - ripe/100) * 100).toFixed(1);
+        insight += `질병 ${diseaseCount}종 감지로 인한 미숙과 손실 위험도 ${lossRisk}%. `;
+    }
+
+    // 수확 지수 + 시급도
+    insight += `종합 수확 지수 ${harvestIndex.toFixed(2)} · 24시간 내 수확 필요 확률 ${displayProb}%.`;
+
+    // 행동 제안
+    if (harvestProb >= 0.8) {
+        insight += ` 🔴 즉시 수확을 권장합니다.`;
+    } else if (harvestProb >= 0.5) {
+        insight += ` 🟡 수확 준비를 시작하세요.`;
+    } else {
+        insight += ` 🟢 현재 상태가 안정적입니다.`;
+    }
+
+    return insight;
+}
+
+
+
 
 function renderHistory(history) {
     historyData = history;
