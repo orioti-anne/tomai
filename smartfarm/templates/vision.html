@@ -625,7 +625,9 @@ function generateInsight(quality, disease, segment, shotType) {
         insight += `⚠️ ${diseaseCount}종 질병 감지 · 미숙과 손실 위험 ${lossRisk}%\n`;
     }
 
-    insight += `🔍 주요 과실 규격: ${sizeType} 단계\n`;
+    if (avgSize > 0) {
+        insight += `🔍 주요 과실 규격: ${sizeStatus} 단계\n`;
+    }
 
     const icon = harvestProb >= 0.8 ? '🔴' : harvestProb >= 0.5 ? '🟡' : '🟢';
     insight += `${icon} 수확 지수 ${harvestIndex.toFixed(2)} — `;
