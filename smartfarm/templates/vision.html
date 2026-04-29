@@ -265,7 +265,7 @@ let segmentChartInstance = null;
 let pollingTimer = null;
 let historyData = [];
 
-// 1. 모델 인덱스 -> 영문 이름 (CoreML 대응)
+// [1] CoreML 인덱스 -> 영문 이름 매핑
 const MODEL_MAPS = {
     'inspector': { 'class0': 'Premium', 'class1': 'Ugly', 'class2': 'Discard', 'class3': 'unripe' },
     'disease': { 'class0': 'Early Blight', 'class1': 'Healthy', 'class2': 'Late Blight', 'class3': 'Leaf Miner', 'class4': 'Leaf Mold', 'class5': 'Mosaic Virus', 'class6': 'Septoria', 'class7': 'Spider Mites', 'class8': 'Yellow Leaf Curl Virus' },
@@ -273,27 +273,26 @@ const MODEL_MAPS = {
     'seg': { 'class0': 'tomato', 'class1': 'tom_fruit_breaker_poly', 'class2': 'tom_fruit_pink_poly', 'class3': 'tom_fruit_red_poly' }
 };
 
-// 2. 영문 이름 -> 한글/화면용 이름
+// [2] 영문 이름 -> 한글/화면용 라벨
 const DISEASE_LABEL = { 'Early Blight': '초기 역병', 'Healthy': '정상', 'Late Blight': '역병', 'Leaf Miner': '굴파리', 'Leaf Mold': '잎곰팡이', 'Mosaic Virus': '모자이크 바이러스', 'Septoria': '셉토리아 반점', 'Spider Mites': '응애', 'Yellow Leaf Curl Virus': '황화잎말림 바이러스' };
 const QUALITY_LABEL = { 'unripe': '미숙과', 'half_ripe': '반숙', 'ripe': '완숙', 'rotten': '부패', 'mold': '곰팡이', 'anthracnose': '탄저병', 'blossom_end_rot': '배꼽썩음', 'fruit_cracking': '열과', 'sunscald': '일소병', 'brown_rugose': '갈색주름' };
 const INSPECTOR_LABEL = { 'Premium': '상품', 'Ugly': '못난이', 'Discard': '폐기', 'unripe': '미숙과' };
-const SEG_LABEL = { 'tom_fruit_breaker_poly': 'Green', 'tom_fruit_pink_poly': 'Pink', 'tom_fruit_red_poly': 'Red' };
+const SEG_NAME_MAP = { 'tom_fruit_breaker_poly': 'Green', 'tom_fruit_pink_poly': 'Pink', 'tom_fruit_red_poly': 'Red' };
 
-// 3. 색상 매핑 (영문 이름 기준)
+// [3] 색상 매핑 (영문 기준)
 const QUALITY_COLOR_MAP = { 'unripe': '#32cd32', 'half_ripe': '#ffa500', 'ripe': '#dc143c', 'rotten': '#3c3c3c', 'blossom_end_rot': '#964b00', 'fruit_cracking': '#8b00ff', 'sunscald': '#ffd700', 'brown_rugose': '#8b4513' };
 const INSPECTOR_COLOR_MAP = { 'Premium': '#22c55e', 'Ugly': '#f59e0b', 'Discard': '#ef4444', 'unripe': '#0ea5e9' };
 
-// [핵심 함수] class0 -> Premium -> 상품 순으로 변환
-function getDisplayName(type, rawName) {
-    const engName = (MODEL_MAPS[type] && MODEL_MAPS[type][rawName]) ? MODEL_MAPS[type][rawName] : rawName;
-    if (type === 'inspector') return { eng: engName, kor: INSPECTOR_LABEL[engName] || engName };
-    if (type === 'disease') return { eng: engName, kor: DISEASE_LABEL[engName] || engName };
-    if (type === 'quality') return { eng: engName, kor: QUALITY_LABEL[engName] || engName };
-    if (type === 'seg') return { eng: engName, kor: SEG_LABEL[engName] || engName };
-    return { eng: engName, kor: engName };
+// [도움 함수] 매핑된 이름 가져오기
+function getEng(category, raw) { return (MODEL_MAPS[category] && MODEL_MAPS[category][raw]) ? MODEL_MAPS[category][raw] : raw; }
+function getKor(category, raw) {
+    const eng = getEng(category, raw);
+    if (category === 'inspector') return INSPECTOR_LABEL[eng] || eng;
+    if (category === 'disease') return DISEASE_LABEL[eng] || eng;
+    if (category === 'quality') return QUALITY_LABEL[eng] || eng;
+    if (category === 'seg') return SEG_NAME_MAP[eng] || eng;
+    return eng;
 }
-
-// --- 아래부터는 로직 수정본 ---
 
 function setAnalysisMode(mode) {
     analysisMode = mode;
@@ -308,208 +307,158 @@ function setAnalysisMode(mode) {
         farmUI.classList.add('hidden');
     }
     clearResults();
-    showVideoState('videoPlaceholder');
 }
 
 function renderResult(data) {
-    const results = data.results;
-    const quality = results.quality || [];
-    const segment = results.segment || [];
-    const disease = results.disease || [];
-    const inspector = results.inspector || [];
-
+    const res = data.results;
     document.getElementById('resultSection').classList.remove('hidden');
 
-    // 1. 출하 선별 결과 렌더링
-    if (inspector.length > 0) {
+    // 1. 출하 선별 (Inspector)
+    if (res.inspector && res.inspector.length > 0) {
         document.getElementById('inspectorResult').classList.remove('hidden');
-        const total = inspector.reduce((s, i) => s + i.count, 0) || 1;
-        document.getElementById('inspectorContent').innerHTML = inspector.map(item => {
-            const names = getDisplayName('inspector', item.class_name);
+        const total = res.inspector.reduce((s, i) => s + i.count, 0) || 1;
+        document.getElementById('inspectorContent').innerHTML = res.inspector.map(item => {
+            const eng = getEng('inspector', item.class_name);
+            const kor = getKor('inspector', item.class_name);
+            const color = INSPECTOR_COLOR_MAP[eng] || '#94a3b8';
             const ratio = (item.count / total * 100).toFixed(1);
-            const color = INSPECTOR_COLOR_MAP[names.eng] || '#94a3b8';
-            return `
-                <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:${color}18; border: 1px solid ${color}33">
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full" style="background:${color}"></div>
-                        <span class="text-sm font-bold text-slate-700">${names.kor}</span>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-sm font-bold text-slate-700">${item.count}개</p>
-                        <p class="text-xs text-slate-400">${ratio}%</p>
-                    </div>
-                </div>
-            `;
+            return `<div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:${color}18; border: 1px solid ${color}33">
+                <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background:${color}"></div><span class="text-sm font-bold">${kor}</span></div>
+                <div class="text-right"><p class="text-sm font-bold">${item.count}개</p><p class="text-xs text-slate-400">${ratio}%</p></div></div>`;
         }).join('');
-
-        // 인사이트 계산을 위해 이름 변환
-        const getRatio = (eng) => {
-            const found = inspector.find(i => getDisplayName('inspector', i.class_name).eng === eng);
-            return found ? (found.count / total * 100).toFixed(1) : 0;
-        };
-        const pR = getRatio('Premium'), uR = getRatio('Ugly'), dR = getRatio('Discard');
-        let insight = `상품 ${pR}% · 못난이 ${uR}% · 폐기 ${dR}%\n`;
-        insight += pR >= 80 ? "🟢 상품 비율이 높습니다." : dR >= 20 ? "🔴 폐기 비율이 높습니다." : "🟡 선별 후 출하를 권장합니다.";
-        document.getElementById('insightSection').classList.remove('hidden');
-        document.getElementById('insightText').innerHTML = insight.replace(/\n/g, '<br>');
-    } else {
-        const insight = generateInsight(quality, disease, segment, data.shot_type);
-        document.getElementById('insightSection').classList.remove('hidden');
-        document.getElementById('insightText').innerHTML = insight.replace(/\n/g, '<br>');
     }
 
-    // 2. 품질 차트 렌더링
-    if (quality.length > 0) {
+    // 2. 품질 차트 (Quality)
+    if (res.quality && res.quality.length > 0) {
         document.getElementById('qualityResult').classList.remove('hidden');
-        const labels = quality.map(q => getDisplayName('quality', q.class_name).kor);
-        const counts = quality.map(q => q.count);
-        const colors = quality.map(q => QUALITY_COLOR_MAP[getDisplayName('quality', q.class_name).eng] || '#94a3b8');
-
+        const labels = res.quality.map(q => getKor('quality', q.class_name));
+        const counts = res.quality.map(q => q.count);
+        const colors = res.quality.map(q => QUALITY_COLOR_MAP[getEng('quality', q.class_name)] || '#94a3b8');
         if (qualityChartInstance) qualityChartInstance.destroy();
         qualityChartInstance = new Chart(document.getElementById('qualityChart'), {
-            type: 'doughnut',
-            data: { labels, datasets: [{ data: counts, backgroundColor: colors, borderWidth: 0, borderRadius: 4 }] },
+            type: 'doughnut', data: { labels, datasets: [{ data: counts, backgroundColor: colors, borderWidth: 0 }] },
             options: { responsive: true, cutout: '70%', plugins: { legend: { display: false } } }
         });
-
-        document.getElementById('qualityLegend').innerHTML = quality.map((q, i) => {
-            const names = getDisplayName('quality', q.class_name);
-            return `
-            <div class="flex items-center justify-between gap-2 min-w-0">
-                <div class="flex items-center gap-1.5 min-w-0">
-                    <div class="w-2.5 h-2.5 rounded-full" style="background:${colors[i]}"></div>
-                    <span class="text-xs font-medium text-slate-600 truncate">${names.kor}</span>
-                </div>
-                <div class="text-right">
-                    <span class="text-xs font-bold text-slate-700">${q.count}개</span>
-                    <span class="text-xs text-slate-400">(${Math.round(q.ratio)}%)</span>
-                </div>
-            </div>`;
-        }).join('');
+        document.getElementById('qualityLegend').innerHTML = res.quality.map((q, i) => `
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full" style="background:${colors[i]}"></div><span class="text-xs font-medium">${labels[i]}</span></div>
+                <div class="text-right"><span class="text-xs font-bold">${q.count}개</span> <span class="text-xs text-slate-400">(${Math.round(q.ratio)}%)</span></div></div>`).join('');
     }
 
-    // 3. 세그멘테이션 차트
-    if (segment.length > 0) {
+    // 3. 세그멘테이션 (Segment)
+    if (res.segment && res.segment.length > 0) {
         document.getElementById('segmentResult').classList.remove('hidden');
-        const SEG_COLOR_MAP = { 'tom_fruit_breaker_poly': '#32cd32', 'tom_fruit_pink_poly': '#ec4899', 'tom_fruit_red_poly': '#ef4444' };
-        const segLabels = segment.map(s => getDisplayName('seg', s.class_name).kor);
-        const segData = segment.map(s => s.avg_growth || 0);
-        const segColors = segment.map(s => SEG_COLOR_MAP[getDisplayName('seg', s.class_name).eng] || '#94a3b8');
-
+        const segColors = { 'tom_fruit_breaker_poly': '#32cd32', 'tom_fruit_pink_poly': '#ec4899', 'tom_fruit_red_poly': '#ef4444' };
         if (segmentChartInstance) segmentChartInstance.destroy();
         segmentChartInstance = new Chart(document.getElementById('segmentChart'), {
             type: 'bar',
-            data: { labels: segLabels, datasets: [{ data: segData, backgroundColor: segColors, borderRadius: 8 }] },
+            data: {
+                labels: res.segment.map(s => getKor('seg', s.class_name)),
+                datasets: [{ data: res.segment.map(s => s.avg_growth || 0), backgroundColor: res.segment.map(s => segColors[getEng('seg', s.class_name)] || '#94a3b8'), borderRadius: 8 }]
+            },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-    // 4. 질병 결과
-    if (disease.length > 0) {
+    // 4. 질병 (Disease)
+    if (res.disease && res.disease.length > 0) {
         document.getElementById('diseaseResult').classList.remove('hidden');
-        document.getElementById('diseaseContent').innerHTML = disease.map(d => {
-            const names = getDisplayName('disease', d.class_name);
-            return `
+        document.getElementById('diseaseContent').innerHTML = res.disease.map(d => `
             <div class="flex items-center justify-between bg-red-50 rounded-xl px-4 py-3">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i>
-                    <span class="text-sm font-bold text-red-700">${names.kor}</span>
-                </div>
-                <div class="text-right">
-                    <p class="text-sm font-bold text-slate-700">${d.count}회 감지</p>
-                    <p class="text-xs text-slate-400">신뢰도 ${(d.avg_conf*100).toFixed(0)}%</p>
-                </div>
-            </div>`;
-        }).join('');
+                <div class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i><span class="text-sm font-bold text-red-700">${getKor('disease', d.class_name)}</span></div>
+                <div class="text-right"><p class="text-sm font-bold">${d.count}회</p><p class="text-xs text-slate-400">${(d.avg_conf*100).toFixed(0)}%</p></div></div>`).join('');
     }
 
+    const insight = (inspector && inspector.length > 0) ? "선별 분석 완료" : generateInsight(res.quality||[], res.disease||[], res.segment||[], data.shot_type);
+    document.getElementById('insightSection').classList.remove('hidden');
+    document.getElementById('insightText').innerHTML = insight.replace(/\n/g, '<br>');
     if (window.lucide) lucide.createIcons();
 }
 
 function generateInsight(quality, disease, segment, shotType) {
-    const findRatio = (eng) => {
-        const found = quality.find(q => getDisplayName('quality', q.class_name).eng === eng);
-        return found ? found.ratio : 0;
-    };
+    const findRatio = (eng) => { const f = quality.find(q => getEng('quality', q.class_name) === eng); return f ? f.ratio : 0; };
     const ripe = findRatio('ripe'), halfRipe = findRatio('half_ripe'), unripe = findRatio('unripe');
-
     if (shotType === 'wide') {
-        const harvestIndex = (ripe/100 * 0.9) + (halfRipe/100 * 0.1);
-        const harvestProb = (1 / (1 + Math.exp(-10 * (harvestIndex - 0.6))) * 100).toFixed(1);
-        return `완숙 ${ripe}% · 반숙 ${halfRipe}% · 미숙 ${unripe}%\n수확 지수 ${harvestIndex.toFixed(2)} — 수확 확률 ${harvestProb}%`;
+        const hIndex = (ripe/100 * 0.9) + (halfRipe/100 * 0.1);
+        return `완숙 ${ripe}% · 반숙 ${halfRipe}% · 미숙 ${unripe}%\n수확 지수 ${hIndex.toFixed(2)}`;
     }
-    return "생육 상태를 분석 중입니다.";
+    return "생육 분석 중입니다.";
 }
 
 function renderHistory(history) {
     historyData = history;
     const el = document.getElementById('historyContent');
-    if (history.length === 0) { el.innerHTML = '<p class="text-sm text-slate-400 text-center py-8">이력이 없습니다.</p>'; return; }
+    if (!history || history.length === 0) { el.innerHTML = '<p class="text-center py-8 text-slate-400">이력이 없습니다.</p>'; return; }
 
     el.innerHTML = `
-        <div class="overflow-x-auto">
+        <div class="hidden md:block overflow-x-auto">
             <table class="w-full text-sm">
-                <thead><tr class="text-xs text-slate-400 border-b border-slate-100"><th class="py-3 px-2">일시</th><th class="py-3 px-2">유형</th><th class="py-3 px-2">결과</th></tr></thead>
+                <thead><tr class="text-xs text-slate-400 border-b border-slate-100"><th class="py-3 px-2 text-left">일시</th><th class="py-3 px-2 text-left">구역</th><th class="py-3 px-2 text-left">유형</th><th class="py-3 px-2 text-left">결과 요약</th><th class="py-3 px-2 text-left">비고</th><th class="py-3 px-2 text-left">관리</th></tr></thead>
                 <tbody>
                     ${history.map(h => {
                         const results = h.shot_type === 'inspector' ? (h.inspector || []) : (h.quality || []);
-                        const resText = results.slice(0, 2).map(r => {
-                            const names = getDisplayName(h.shot_type === 'inspector' ? 'inspector' : 'quality', r.class_name);
-                            return `${names.kor} ${r.ratio}%`;
-                        }).join(' / ');
-                        return `
-                        <tr class="hover:bg-slate-50 cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
+                        const summary = results.slice(0, 2).map(r => `${getKor(h.shot_type === 'inspector' ? 'inspector' : 'quality', r.class_name)} ${r.ratio}%`).join('<br>');
+                        const diseaseTag = (h.shot_type === 'zoom' && h.disease?.length > 0) ? `<span class="text-red-500 font-bold">${h.disease.length}종 질병</span>` : '-';
+                        return `<tr class="hover:bg-slate-50 cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
                             <td class="py-3 px-2 text-xs">${h.analyzed_at}</td>
+                            <td class="py-3 px-2 text-xs">${h.zone_name || '-'}</td>
                             <td class="py-3 px-2"><span class="px-2 py-1 rounded-full text-[10px] font-bold bg-slate-100">${h.shot_type}</span></td>
-                            <td class="py-3 px-2 text-xs">${resText}</td>
-                        </tr>`;
+                            <td class="py-3 px-2 text-[11px]">${summary}</td>
+                            <td class="py-3 px-2 text-xs">${diseaseTag}</td>
+                            <td class="py-3 px-2"><button onclick="event.stopPropagation(); deleteSession(${h.session_id})"><i data-lucide="trash-2" class="w-3 h-3 text-slate-300"></i></button></td></tr>`;
                     }).join('')}
                 </tbody>
             </table>
+        </div>
+        <div class="md:hidden space-y-3">
+            ${history.map(h => `<div class="bg-slate-50 p-4 rounded-2xl" onclick="loadHistoryDetail(${h.session_id})">
+                <div class="flex justify-between mb-2"><span class="text-[10px] text-slate-400">${h.analyzed_at}</span><span class="text-[10px] font-bold text-green-600">${h.shot_type}</span></div>
+                <p class="text-xs font-bold text-slate-700">${h.zone_name || '구역 정보 없음'}</p></div>`).join('')}
         </div>`;
     if (window.lucide) lucide.createIcons();
 }
 
-// --- 공통 함수 유지 ---
-async function loadZones() { if (!selectedCultId) return; const res = await fetch(`/vision/zones/${selectedCultId}`); const data = await res.json(); const select = document.getElementById('zoneSelect'); select.innerHTML = '<option value="">구역 선택</option>'; (data.zones || []).forEach(z => { select.innerHTML += `<option value="${z}">${z}</option>`; }); }
-async function loadHistory() { if (!selectedCultId) return; const res = await fetch(`/vision/history/${selectedCultId}`); const data = await res.json(); renderHistory(data.history || []); }
+// --- 공통 핸들러 (기능 유지) ---
+async function loadZones() { if (!selectedCultId) return; const r = await fetch(`/vision/zones/${selectedCultId}`); const d = await r.json(); const s = document.getElementById('zoneSelect'); s.innerHTML = '<option value="">구역 선택</option>'; (d.zones||[]).forEach(z => s.innerHTML += `<option value="${z}">${z}</option>`); }
+async function loadHistory() { if (!selectedCultId) return; const r = await fetch(`/vision/history/${selectedCultId}`); const d = await r.json(); renderHistory(d.history || []); }
 function onCultChange(val) { selectedCultId = val; loadHistory(); loadZones(); clearResults(); showVideoState('videoPlaceholder'); }
 function onZoneSelect(val) { document.getElementById('zoneInput').value = val; }
-function handleFile(input) { const file = input.files[0]; if (!file) return; videoFile = file; document.getElementById('fileName').classList.remove('hidden'); document.getElementById('fileNameText').textContent = file.name; }
+function handleFile(i) { const f = i.files[0]; if(!f) return; videoFile = f; document.getElementById('fileName').classList.remove('hidden'); document.getElementById('fileNameText').textContent = f.name; }
 function clearResults() { document.getElementById('insightSection').classList.add('hidden'); document.getElementById('resultSection').classList.add('hidden'); }
-function showVideoState(state, url, isImage=false) { const states = ['videoPlaceholder','analysisLoading','videoGenerating','videoPlayer','imagePlayer','videoDeleted']; states.forEach(s => document.getElementById(s).classList.add('hidden')); if (state === 'videoPlayer' && url) { if (isImage) { document.getElementById('imagePlayer').classList.remove('hidden'); document.getElementById('resultImage').src = url; } else { document.getElementById('videoPlayer').classList.remove('hidden'); document.getElementById('videoSource').src = url; document.getElementById('resultVideo').load(); } } else { document.getElementById(state).classList.remove('hidden'); } }
+function showVideoState(st, url, isImg=false) { ['videoPlaceholder','analysisLoading','videoGenerating','videoPlayer','imagePlayer','videoDeleted'].forEach(s => document.getElementById(s).classList.add('hidden')); if (st === 'videoPlayer' && url) { if (isImg) { document.getElementById('imagePlayer').classList.remove('hidden'); document.getElementById('resultImage').src = url; } else { document.getElementById('videoPlayer').classList.remove('hidden'); document.getElementById('videoSource').src = url; document.getElementById('resultVideo').load(); } } else { document.getElementById(st).classList.remove('hidden'); } }
 
 async function analyzeVision() {
     if (!videoFile || !selectedCultId) return alert('파일과 재배명을 확인하세요.');
     showVideoState('analysisLoading');
-    const formData = new FormData();
-    formData.append('image', videoFile);
-    formData.append('analysis_mode', analysisMode);
-    formData.append('zone_name', analysisMode === 'farm' ? document.getElementById('zoneInput').value : '검수구역');
-    formData.append('shot_type', shotType);
-
-    const res = await fetch(`/vision/analyze/${selectedCultId}`, { method: 'POST', body: formData });
-    const data = await res.json();
-    renderResult(data);
-    loadHistory();
-    startPolling(data.session_id);
+    const fd = new FormData();
+    fd.append('image', videoFile); fd.append('analysis_mode', analysisMode);
+    fd.append('zone_name', analysisMode === 'farm' ? document.getElementById('zoneInput').value : '검수구역');
+    fd.append('shot_type', shotType);
+    try {
+        const r = await fetch(`/vision/analyze/${selectedCultId}`, { method: 'POST', body: fd });
+        const d = await r.json();
+        renderResult(d); loadHistory(); startPolling(d.session_id);
+        showVideoState('videoGenerating');
+    } catch(e) { alert('분석 실패'); showVideoState('videoPlaceholder'); }
 }
 
-function startPolling(sessionId) {
+function startPolling(sid) {
+    if (pollingTimer) clearInterval(pollingTimer);
     pollingTimer = setInterval(async () => {
-        const res = await fetch(`/vision/video-status/${sessionId}`);
-        const data = await res.json();
-        if (data.status === 'ready') {
-            clearInterval(pollingTimer);
-            showVideoState('videoPlayer', data.video_url, data.is_image);
-        }
+        const r = await fetch(`/vision/video-status/${sid}`);
+        const d = await r.json();
+        if (d.status === 'ready') { clearInterval(pollingTimer); showVideoState('videoPlayer', d.video_url, d.is_image); }
     }, 5000);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    loadHistory();
-    loadZones();
-    if (window.lucide) lucide.createIcons();
-});
+function loadHistoryDetail(sid) {
+    const h = historyData.find(x => x.session_id === sid);
+    if (!h) return;
+    renderResult({ shot_type: h.shot_type, results: { quality: h.quality, disease: h.disease, segment: h.segment, inspector: h.inspector } });
+    showVideoState('videoPlayer', h.video_path, h.video_path?.match(/\.(jpg|jpeg|png)$/i));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadHistory(); loadZones(); if (window.lucide) lucide.createIcons(); });
 </script>
 {% endblock %}
