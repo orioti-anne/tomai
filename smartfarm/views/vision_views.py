@@ -187,6 +187,12 @@ def _run_vision(image_or_video, shot_type, is_image=False):
         })
     results['analyzed_frames'] = analyzed
     results['total_frames'] = total_frames
+
+    import gc
+    import torch
+    gc.collect()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
     return results
 
 
@@ -352,6 +358,11 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                     SET video_status='ready', video_path=:path
                     WHERE session_id=:sid
                 """), {'path': output_path, 'sid': session_id})
+
+            import gc
+            gc.collect()
+            if torch.backends.mps.is_available():
+                torch.mps.empty_cache()
 
         except Exception as e:
             traceback.print_exc()
