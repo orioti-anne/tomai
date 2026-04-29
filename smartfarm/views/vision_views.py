@@ -99,6 +99,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                     if cls == 'Discard' and conf < 0.85:
                         cls = 'Ugly'
                     inspector_total[cls] = inspector_total.get(cls, 0) + 1
+            del res
 
         # 2. 재배 분석 모드
         elif shot_type in ('wide', 'zoom'):
@@ -115,6 +116,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                 for box in q.boxes:
                     cls = q.names[int(box.cls)]
                     quality_total[cls] = quality_total.get(cls, 0) + 1
+            del q
 
         if shot_type == 'zoom':
             d = disease_model.track(frame, conf=0.5, persist=True, verbose=False, device=device)[0]
@@ -136,6 +138,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                         continue
                     disease_total[cls] = disease_total.get(cls, 0) + 1
                     disease_conf.setdefault(cls, []).append(float(box.conf))
+            del d
 
             s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
             if s.masks is not None:
@@ -143,6 +146,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                     cls = s.names[int(box.cls)]
                     area = int(mask.data.sum().item())
                     seg_total.setdefault(cls, []).append(area)
+            del s
 
     results = {}
     i_total = sum(inspector_total.values()) or 1
@@ -255,6 +259,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                         color = INSPECTOR_COLOR.get(cls, (200, 200, 200))
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
                         draw_text_bg(overlay, f"{cls} {float(box.conf):.2f}", (x1, y1 - 5), 0.4, color)
+                    del res
 
                 # B. 생산추적(wide, zoom) 품질 시각화
                 if shot_type in ('wide', 'zoom'):
@@ -265,6 +270,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                         color = QUALITY_COLOR.get(cls, (200, 200, 200))
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 1)
                         draw_text_bg(overlay, f"Q:{cls[:4]} {float(box.conf):.2f}", (x1, y2 + 15), 0.3, color)
+                    del q
 
                 # C. 근접 zoom 전용 (질병 + 세그멘테이션)
                 if shot_type == 'zoom':
@@ -276,6 +282,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                         x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), 2)
                         draw_text_bg(overlay, f"D:{cls[:8]}", (x1, y1 - 8), 0.45, (0, 0, 255))
+                    del d
 
                     # 세그멘테이션 및 성장도 시각화
                     s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
@@ -303,6 +310,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                                 bar_w = x2 - x1
                                 cv2.rectangle(overlay, (x1, y2 + 2), (x2, y2 + 10), (50, 50, 50), -1)
                                 cv2.rectangle(overlay, (x1, y2 + 2), (x1 + int(bar_w * pct / 100), y2 + 10), color, -1)
+                    del s
 
                 return cv2.addWeighted(overlay, 0.85, frame, 0.15, 0)
 
