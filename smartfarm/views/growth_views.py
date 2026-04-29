@@ -200,11 +200,12 @@ def recommend_environment(selected_cultivation, latest_growth, latest_env):
     vpd_candidates = [0.8, 1.0, 1.2, 1.4]
     co2_candidates = [400, 600, 800, 1000, 1200]
 
-    candidates = []
+    # 배치로 한 번에 예측 (기존 100번 개별 호출 → 1번 배치)
+    candidate_params = []
+    rows = []
 
     for temp, vpd, co2 in itertools.product(temp_candidates, vpd_candidates, co2_candidates):
         humidity = humidity_from_temp_vpd(temp, vpd)
-
         row = {
             "PERIOD_GDD": max(temp - 10, 0),
             "PERIOD_VPD": vpd,
@@ -222,22 +223,26 @@ def recommend_environment(selected_cultivation, latest_growth, latest_env):
             print(f"[growth] missing_features={missing_features}")
             return result
 
-        X = pd.DataFrame([[row[f] for f in features]], columns=features)
-        pred = float(model.predict(X)[0])
-
-        candidates.append({
+        candidate_params.append({
             "temp": round(float(temp), 1),
             "humidity": round(float(humidity), 1),
             "co2": round(float(co2), 0),
             "stress_temp": stress_temp,
-            "predicted_rgr": pred,
         })
+        rows.append([row[f] for f in features])
 
-    if not candidates:
+    if not rows:
         print("[growth] candidates 없음")
         return result
 
-    best = max(candidates, key=lambda x: x["predicted_rgr"])
+    # 한 번에 배치 예측
+    X_all = pd.DataFrame(rows, columns=features)
+    preds = model.predict(X_all)
+
+    best_idx = int(np.argmax(preds))
+    best = candidate_params[best_idx]
+    best["predicted_rgr"] = float(preds[best_idx])
+
     print(f"[growth] best={best}")
     return best
 
@@ -439,8 +444,6 @@ def growth_monitoring():
         recommended_env=recommended_env,
         growth_forecasts=growth_forecasts,
     )
-
-
 
 
 @bp.route("/get_latest_plant_data/<int:cult_id>/<int:plant_num>")
