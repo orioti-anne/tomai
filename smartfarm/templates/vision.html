@@ -412,18 +412,18 @@ function renderHistory(history) {
                     ${history.map(h => {
                         const isInspector = h.shot_type === 'inspector';
                         const resList = isInspector ? (h.inspector || []) : (h.quality || []);
-                        const summary = resList.slice(0, 2).map(r => `${getKor(isInspector ? 'inspector' : 'quality', r.class_name)} ${r.ratio}%`).join('<br>');
+                        const summary = resList.map(r => `${getKor(isInspector ? 'inspector' : 'quality', r.class_name)} ${r.ratio}%`).join('<br>');
                         const diseaseTag = (h.shot_type === 'zoom') ? (h.disease?.length > 0 ? `<span class="text-red-500 font-bold">${h.disease.length}종</span>` : '<span class="text-green-600 font-bold">정상</span>') : '-';
                         const sizeTag = (h.segment && h.segment.length > 0) ? h.segment.filter(s => s.avg_growth != null).map(s => `${getKor('seg', s.class_name)} (${s.avg_growth}%)`).join('<br>') : '-';
                         const mediaIcon = h.video_path ? (h.video_path.match(/\.(jpg|jpeg|png)$/i) ? 'image' : 'play-circle') : 'video-off';
                         return `
                         <tr class="hover:bg-slate-50 transition-colors cursor-pointer" data-session="${h.session_id}" onclick="loadHistoryDetail(${h.session_id})">
-                            <td class="py-3 px-2 text-[11px] font-medium text-slate-700">${h.analyzed_at}</td>
+                            <td class="py-3 px-2 text-xs font-medium text-slate-700">${h.analyzed_at}</td>
                             <td class="py-3 px-2 text-xs text-slate-600">${h.zone_name || '-'}</td>
                             <td class="py-3 px-2"><span class="px-2 py-1 rounded-full text-[10px] font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':h.shot_type==='zoom'?'bg-purple-50 text-purple-600':'bg-green-50 text-green-600'}">${h.shot_type}</span></td>
-                            <td class="py-3 px-2 text-[10px] leading-tight">${summary || '-'}</td>
+                            <td class="py-3 px-2 text-xs leading-tight">${summary || '-'}</td>
                             <td class="py-3 px-2 text-xs">${diseaseTag}</td>
-                            <td class="py-3 px-2 text-[10px]">${sizeTag}</td>
+                            <td class="py-3 px-2 text-xs">${sizeTag}</td>
                             <td class="py-3 px-2"><span class="${h.video_path?'text-green-600':'text-slate-300'}"><i data-lucide="${mediaIcon}" class="w-4 h-4"></i></span></td>
                             <td class="py-3 px-2"><button onclick="event.stopPropagation(); deleteSession(${h.session_id})"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-slate-300"></i></button></td>
                         </tr>`;
