@@ -74,15 +74,25 @@ def _run_vision(image_or_video, shot_type, is_image=False):
     inspector_total = {}
     seg_total = {}
 
+    tracked_ids = set()
     for frame in frames:
-            # 1. 상품감별(inspector) 모드일 때
+        # 1. 상품감별(inspector) 모드일 때
         if shot_type == 'inspector':
-            res = inspector_model(frame, conf=0.4, verbose=False)[0]
-            for box in res.boxes:
-                cls = res.names[int(box.cls)]
-                inspector_total[cls] = inspector_total.get(cls, 0) + 1
+            res = inspector_model.track(frame, conf=0.4, persist=True, verbose=False)[0]
+            if res.boxes.id is not None:
+                for box, track_id in zip(res.boxes, res.boxes.id):
+                    tid = int(track_id)
+                    if tid in tracked_ids:
+                        continue
+                    tracked_ids.add(tid)
+                    cls = res.names[int(box.cls)]
+                    inspector_total[cls] = inspector_total.get(cls, 0) + 1
+            else:
+                for box in res.boxes:
+                    cls = res.names[int(box.cls)]
+                    inspector_total[cls] = inspector_total.get(cls, 0) + 1
 
-            # 2. 생산추적(wide, zoom) 모드일 때
+        # 2. 생산추적(wide, zoom) 모드일 때
         elif shot_type in ('wide', 'zoom'):
             q = quality_model(frame, conf=0.5, verbose=False)[0]
             for box in q.boxes:
@@ -106,9 +116,10 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                     seg_total.setdefault(cls, []).append(area)
 
     results = {}
+    i_total = sum(inspector_total.values()) or 1
     q_total = sum(quality_total.values()) or 1
     results['inspector'] = [
-        {'class_name': k, 'count': v}
+        {'class_name': k, 'count': v, 'ratio': round(v / i_total * 100, 2)}
         for k, v in inspector_total.items()
     ]
     results['quality'] = [
@@ -380,13 +391,11 @@ def analyze(cult_id):
             # inspector 결과 저장
             inspector_list = vision_results.get('inspector', [])
             if inspector_list:
-                total_count = sum(i['count'] for i in inspector_list) or 1
                 for i in inspector_list:
-                    ratio = round(i['count'] / total_count * 100, 2)
                     conn.execute(text("""
                         INSERT INTO vision_inspector (session_id, class_name, count, ratio)
                         VALUES (:sid, :cls, :cnt, :ratio)
-                    """), {'sid': session_id, 'cls': i['class_name'], 'cnt': i['count'], 'ratio': ratio})
+                    """), {'sid': session_id, 'cls': i['class_name'], 'cnt': i['count'], 'ratio': i['ratio']})
 
             for q in vision_results.get('quality', []):
                 conn.execute(text("""
