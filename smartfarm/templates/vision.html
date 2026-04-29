@@ -593,7 +593,10 @@ function renderResult(data) {
                     <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:${colors[i]}"></div>
                     <span class="text-xs font-medium text-slate-600 truncate">${QUALITY_LABEL[q.class_name]||q.class_name}</span>
                 </div>
-                <span class="text-xs font-bold text-slate-700 flex-shrink-0">${q.ratio}%</span>
+                <div class="text-right flex-shrink-0">
+                    <span class="text-xs font-bold text-slate-700">${q.ratio}%</span>
+                    <span class="text-xs text-slate-400 ml-1">(${q.count}개)</span>
+                </div>
             </div>
         `).join('');
     }
