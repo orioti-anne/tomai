@@ -432,9 +432,35 @@ function renderHistory(history) {
             </table>
         </div>
         <div class="md:hidden space-y-3">
-            ${history.map(h => `<div class="bg-slate-50 p-4 rounded-2xl" onclick="loadHistoryDetail(${h.session_id})">
-                <div class="flex justify-between items-center mb-1"><span class="text-[10px] text-slate-400">${h.analyzed_at}</span><span class="text-[10px] font-bold text-green-600">${h.shot_type}</span></div>
-                <p class="text-xs font-bold text-slate-800">${h.zone_name || '구역 정보 없음'}</p></div>`).join('')}
+            ${history.map(h => {
+                const isInspector = h.shot_type === 'inspector';
+                const resList = isInspector ? (h.inspector || []) : (h.quality || []);
+                const summary = resList.slice(0,3).map(r => `${getKor(isInspector?'inspector':'quality', r.class_name)} ${r.ratio}%`).join(' · ');
+                const mediaIcon = h.video_path ? (h.video_path.match(/\.(jpg|jpeg|png)$/i) ? 'image' : 'play-circle') : 'video-off';
+                return `
+                <div class="bg-slate-50 rounded-2xl p-4 space-y-3 cursor-pointer" data-session="${h.session_id}" onclick="loadHistoryDetail(${h.session_id})">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-400">${h.analyzed_at}</span>
+                        <div class="flex items-center gap-2">
+                            <span class="px-2 py-1 rounded-full text-[10px] font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':h.shot_type==='zoom'?'bg-purple-50 text-purple-600':'bg-green-50 text-green-600'}">${h.shot_type==='wide'?'Wide':h.shot_type==='zoom'?'Zoom':'선별'}</span>
+                            <span class="${h.video_path?'text-green-600':'text-slate-300'}"><i data-lucide="${mediaIcon}" class="w-4 h-4"></i></span>
+                            <button onclick="event.stopPropagation(); deleteSession(${h.session_id})" class="text-slate-300 hover:text-red-400 transition-colors"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-slate-400">구역</span>
+                        <span class="text-xs font-bold text-slate-700">${h.zone_name||'-'}</span>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block mb-1">${isInspector?'선별 결과':'품질'}</span>
+                        <span class="text-xs text-slate-600">${summary||'-'}</span>
+                    </div>
+                    ${h.shot_type==='zoom' ? `<div>
+                        <span class="text-xs text-slate-400 block mb-1">질병</span>
+                        ${h.disease?.length>0 ? `<span class="text-red-500 font-bold text-xs">${h.disease.length}종 감지</span>` : '<span class="text-green-600 font-bold text-xs">이상없음</span>'}
+                    </div>` : ''}
+                </div>`;
+            }).join('')}
         </div>`;
     if (window.lucide) lucide.createIcons();
 }
@@ -446,6 +472,11 @@ function loadHistoryDetail(sid) {
     const h = historyData.find(x => x.session_id === sid);
     if (!h) return;
 
+    // 하이라이트
+    document.querySelectorAll('[data-session]').forEach(el => el.classList.remove('bg-green-50'));
+    document.querySelectorAll(`[data-session="${sid}"]`).forEach(el => el.classList.add('bg-green-50'));
+
+    clearResults();
     renderResult({
         shot_type: h.shot_type,
         results: { quality: h.quality, disease: h.disease, segment: h.segment, inspector: h.inspector }
@@ -454,7 +485,6 @@ function loadHistoryDetail(sid) {
     if (!h.video_path) {
         showVideoState('videoDeleted');
     } else {
-        // [수정] video-status를 통해 실제 재생 가능한 URL을 다시 확인합니다.
         fetch(`/vision/video-status/${sid}`)
             .then(r => r.json())
             .then(data => {
@@ -470,23 +500,77 @@ function loadHistoryDetail(sid) {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// [나머지 필수 함수들]
-function generateInsight(quality, disease, segment, shotType) {
-    const findR = (e) => { const f = quality.find(q => getEng('quality', q.class_name) === e); return f ? f.ratio : 0; };
-    const ripe = findR('ripe'), half = findR('half_ripe'), unripe = findR('unripe');
-    if (shotType === 'wide') {
-        const hIdx = (ripe/100 * 0.9) + (half/100 * 0.1);
-        return `완숙 ${ripe}% · 반숙 ${half}% · 미숙 ${unripe}%\n수확 지수 ${hIdx.toFixed(2)}`;
+// ── 분석 모드 전환 ──
+function setAnalysisMode(mode) {
+    analysisMode = mode;
+    const farmUI = document.getElementById('farmModeUI');
+    if (mode === 'farm') {
+        document.getElementById('btnModeFarm').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-green-400 bg-green-50 text-green-600';
+        document.getElementById('btnModeInspector').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
+        farmUI.classList.remove('hidden');
+    } else {
+        document.getElementById('btnModeInspector').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600';
+        document.getElementById('btnModeFarm').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
+        farmUI.classList.add('hidden');
     }
-    return "생육 분석이 완료되었습니다.";
+    clearResults();
+    showVideoState('videoPlaceholder');
 }
 
-async function loadZones() { if (!selectedCultId) return; const r = await fetch(`/vision/zones/${selectedCultId}`); const d = await r.json(); const s = document.getElementById('zoneSelect'); s.innerHTML = '<option value="">구역 선택</option>'; (d.zones||[]).forEach(z => s.innerHTML += `<option value="${z}">${z}</option>`); }
-async function loadHistory() { if (!selectedCultId) return; const r = await fetch(`/vision/history/${selectedCultId}`); const d = await r.json(); renderHistory(d.history || []); }
-function onCultChange(v) { selectedCultId = v; loadHistory(); loadZones(); clearResults(); showVideoState('videoPlaceholder'); }
-function onZoneSelect(v) { document.getElementById('zoneInput').value = v; }
-function handleFile(i) { const f = i.files[0]; if(!f) return; videoFile = f; document.getElementById('fileName').classList.remove('hidden'); document.getElementById('fileNameText').textContent = f.name; }
-function clearResults() { document.getElementById('insightSection').classList.add('hidden'); document.getElementById('resultSection').classList.add('hidden'); }
+// ── 촬영 유형 전환 ──
+function setShotType(type) {
+    shotType = type;
+    const guideEl = document.getElementById('guideText').querySelector('span');
+    const guideBox = document.getElementById('shotTypeGuide');
+    if (type === 'wide') {
+        document.getElementById('btnWide').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600';
+        document.getElementById('btnZoom').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
+        guideEl.textContent = '전체 품질 분포 분석에 최적화되어 있습니다.';
+        guideBox.className = 'mt-2 px-3 py-2 bg-blue-50/50 rounded-lg border border-blue-100';
+    } else {
+        document.getElementById('btnZoom').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-purple-400 bg-purple-50 text-purple-600';
+        document.getElementById('btnWide').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
+        guideEl.textContent = '과실 성장과 잎 질병 유무를 정밀 진단합니다.';
+        guideBox.className = 'mt-2 px-3 py-2 bg-purple-50/50 rounded-lg border border-purple-100';
+    }
+}
+
+// ── 파일 업로드 ──
+function handleFile(input) {
+    const f = input.files[0];
+    if (!f) return;
+    videoFile = f;
+    document.getElementById('fileName').classList.remove('hidden');
+    document.getElementById('fileNameText').textContent = f.name;
+    document.getElementById('dropZone').classList.add('border-green-400', 'bg-green-50');
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    const f = event.dataTransfer.files[0];
+    if (!f) return;
+    const input = document.getElementById('videoInput');
+    const dt = new DataTransfer();
+    dt.items.add(f);
+    input.files = dt.files;
+    handleFile(input);
+}
+
+// ── 결과 초기화 ──
+function clearResults() {
+    document.getElementById('insightSection').classList.add('hidden');
+    document.getElementById('resultSection').classList.add('hidden');
+    document.getElementById('qualityResult').classList.add('hidden');
+    document.getElementById('segmentResult').classList.add('hidden');
+    document.getElementById('diseaseResult').classList.add('hidden');
+    document.getElementById('inspectorResult').classList.add('hidden');
+    document.getElementById('diseaseContent').innerHTML = '';
+    document.getElementById('inspectorContent').innerHTML = '';
+    if (qualityChartInstance) { qualityChartInstance.destroy(); qualityChartInstance = null; }
+    if (segmentChartInstance) { segmentChartInstance.destroy(); segmentChartInstance = null; }
+}
+
+// ── 영상 상태 표시 ──
 function showVideoState(st, url, isImg=false) {
     ['videoPlaceholder','analysisLoading','videoGenerating','videoPlayer','imagePlayer','videoDeleted'].forEach(s => document.getElementById(s).classList.add('hidden'));
     if (st === 'videoPlayer' && url) {
@@ -495,27 +579,148 @@ function showVideoState(st, url, isImg=false) {
     } else { document.getElementById(st).classList.remove('hidden'); }
 }
 
+// ── 이력 삭제 ──
+async function deleteSession(sessionId) {
+    if (!confirm('이 분석 이력을 삭제할까요?')) return;
+    try {
+        const res = await fetch(`/vision/session/${sessionId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) loadHistory();
+    } catch(e) {}
+}
+
+// ── AI 인사이트 ──
+function generateInsight(quality, disease, segment, shotType) {
+    const findR = (e) => { const f = quality.find(q => getEng('quality', q.class_name) === e); return f ? f.ratio : 0; };
+    const ripe = findR('ripe'), halfRipe = findR('half_ripe'), unripe = findR('unripe');
+
+    if (shotType === 'wide') {
+        const defect = quality.filter(q =>
+            ['rotten','blossom_end_rot','fruit_cracking','sunscald','brown_rugose','mold','anthracnose'].includes(getEng('quality', q.class_name))
+        ).reduce((sum, q) => sum + q.ratio, 0);
+        const harvestIndex = (ripe/100 * 0.9) + (halfRipe/100 * 0.1);
+        const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));
+        const displayProb = (harvestProb * 100).toFixed(1);
+        let parts = [];
+        if (defect > 0) parts.push(`⚠️ 결함 과실 발견(${defect.toFixed(1)}%) — 구역 관리가 필요합니다.`);
+        if (ripe >= 80) parts.push(`완숙 비율 ${ripe}%로 수확 적기입니다.`);
+        else if (ripe + halfRipe >= 50) parts.push(`완숙/반숙 과실이 50% 이상으로 선별 수확이 가능한 상태입니다.`);
+        else if (unripe >= 70) parts.push(`미숙과 비율이 높아 아직 성장 중인 구역입니다.`);
+        else parts.push(`전체적인 생육 상태가 안정적입니다.`);
+        parts.push(`수확 지수 ${harvestIndex.toFixed(2)} · 수확 필요 확률 ${displayProb}%`);
+        if (harvestProb >= 0.8) parts.push(`🔴 즉시 수확을 권장합니다.`);
+        else if (harvestProb >= 0.5) parts.push(`🟡 수확 준비를 시작하세요.`);
+        else parts.push(`🟢 현재 상태가 안정적입니다.`);
+        return parts.join('\n');
+    }
+
+    if (shotType === 'inspector') {
+        return '출하 선별 분석이 완료되었습니다.';
+    }
+
+    const redSeg = segment.find(s => getEng('seg', s.class_name) === 'tom_fruit_red_poly');
+    const avgSize = redSeg ? redSeg.avg_growth : 0;
+    const diseaseCount = disease.length;
+    const normalizedSize = Math.min(avgSize / 100, 1);
+    const harvestIndex = (ripe/100 * 0.8) + (halfRipe/100 * 0.1) + (normalizedSize * 0.1);
+    const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));
+    const displayProb = (harvestProb * 100).toFixed(1);
+    let insight = '';
+    if (diseaseCount > 0) {
+        const lossRisk = (diseaseCount * 15 * (unripe/100)).toFixed(1);
+        insight += `⚠️ ${diseaseCount}종 질병 감지 · 미숙과 손실 위험 ${lossRisk}%\n`;
+    }
+    const icon = harvestProb >= 0.8 ? '🔴' : harvestProb >= 0.5 ? '🟡' : '🟢';
+    insight += `${icon} 수확 지수 ${harvestIndex.toFixed(2)} — `;
+    if (harvestProb >= 0.8) insight += `완숙도가 최상입니다. 수확을 시작하세요. (수확 필요 확률 ${displayProb}%)`;
+    else if (harvestProb >= 0.5) insight += `수확 적기에 도달 중입니다. 선별 수확을 준비하세요. (수확 필요 확률 ${displayProb}%)`;
+    else insight += `성장 단계입니다. 지속적인 모니터링이 필요합니다. (수확 필요 확률 ${displayProb}%)`;
+    return insight;
+}
+
+// ── 구역/이력 로드 ──
+async function loadZones() {
+    if (!selectedCultId) return;
+    const r = await fetch(`/vision/zones/${selectedCultId}`);
+    const d = await r.json();
+    const s = document.getElementById('zoneSelect');
+    s.innerHTML = '<option value="">구역 선택 또는 직접 입력</option>';
+    (d.zones||[]).forEach(z => s.innerHTML += `<option value="${z}">${z}</option>`);
+}
+
+async function loadHistory() {
+    if (!selectedCultId) return;
+    const r = await fetch(`/vision/history/${selectedCultId}`);
+    const d = await r.json();
+    renderHistory(d.history || []);
+}
+
+// ── 재배 변경 ──
+function onCultChange(v) {
+    selectedCultId = v;
+    clearResults();
+    showVideoState('videoPlaceholder');
+    document.getElementById('videoStatus').textContent = '';
+    loadHistory();
+    loadZones();
+}
+
+function onZoneSelect(v) {
+    document.getElementById('zoneInput').value = v;
+}
+
+// ── 분석 시작 ──
 async function analyzeVision() {
-    if (!videoFile || !selectedCultId) return alert('파일과 재배명을 확인하세요.');
+    if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
+    if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
+    if (analysisMode === 'farm') {
+        const zone = document.getElementById('zoneInput').value.trim();
+        if (!zone) { alert('구역명을 입력하거나 선택해주세요.'); document.getElementById('zoneInput').focus(); return; }
+    }
+    clearResults();
     showVideoState('analysisLoading');
+    document.getElementById('videoStatus').textContent = '';
+    if (pollingTimer) clearInterval(pollingTimer);
+
     const fd = new FormData();
-    fd.append('image', videoFile); fd.append('analysis_mode', analysisMode);
-    fd.append('zone_name', analysisMode === 'farm' ? document.getElementById('zoneInput').value : '검수구역');
+    fd.append('image', videoFile);
+    fd.append('analysis_mode', analysisMode);
     fd.append('shot_type', shotType);
+    fd.append('zone_name', analysisMode === 'farm' ? document.getElementById('zoneInput').value : '검수구역');
+
     try {
         const r = await fetch(`/vision/analyze/${selectedCultId}`, { method: 'POST', body: fd });
         const d = await r.json();
-        renderResult(d); loadHistory(); startPolling(d.session_id);
+        if (d.error) throw new Error(d.error);
+        videoFile = null;
+        document.getElementById('videoInput').value = '';
+        document.getElementById('fileName').classList.add('hidden');
+        document.getElementById('dropZone').classList.remove('border-green-400', 'bg-green-50');
+        renderResult(d);
+        loadHistory();
         showVideoState('videoGenerating');
-    } catch(e) { alert('분석 실패'); showVideoState('videoPlaceholder'); }
+        document.getElementById('videoStatus').textContent = '생성 중...';
+        startPolling(d.session_id);
+    } catch(e) { alert('분석 실패: ' + e.message); showVideoState('videoPlaceholder'); }
 }
 
+// ── 폴링 ──
 function startPolling(sid) {
     if (pollingTimer) clearInterval(pollingTimer);
     pollingTimer = setInterval(async () => {
-        const r = await fetch(`/vision/video-status/${sid}`);
-        const d = await r.json();
-        if (d.status === 'ready') { clearInterval(pollingTimer); showVideoState('videoPlayer', d.video_url, d.is_image); }
+        try {
+            const r = await fetch(`/vision/video-status/${sid}`);
+            const d = await r.json();
+            if (d.status === 'ready') {
+                clearInterval(pollingTimer);
+                showVideoState('videoPlayer', d.video_url, d.is_image);
+                document.getElementById('videoStatus').textContent = '분석 완료';
+                loadHistory();
+            } else if (d.status === 'deleted') {
+                clearInterval(pollingTimer);
+                showVideoState('videoDeleted');
+            }
+        } catch(e) {}
     }, 5000);
 }
 
