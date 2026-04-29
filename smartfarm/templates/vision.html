@@ -270,10 +270,22 @@ let historyData = [];
 
 // [1] CoreML 인덱스 -> 영문 이름 매핑 (사용자 제공 정보 기준)
 const MODEL_MAPS = {
-    'inspector': { 'class0': 'Premium', 'class1': 'Ugly', 'class2': 'Discard', 'class3': 'unripe' },
-    'disease': { 'class0': 'Early Blight', 'class1': 'Healthy', 'class2': 'Late Blight', 'class3': 'Leaf Miner', 'class4': 'Leaf Mold', 'class5': 'Mosaic Virus', 'class6': 'Septoria', 'class7': 'Spider Mites', 'class8': 'Yellow Leaf Curl Virus' },
-    'quality': { 'class0': 'anthracnose', 'class1': 'blossom_end_rot', 'class2': 'brown_rugose', 'class3': 'fruit_cracking', 'class4': 'half_ripe', 'class5': 'mold', 'class6': 'ripe', 'class7': 'rotten', 'class8': 'sunscald', 'class9': 'unripe' },
-    'seg': { 'class0': 'tomato', 'class1': 'tom_fruit_breaker_poly', 'class2': 'tom_fruit_pink_poly', 'class3': 'tom_fruit_red_poly' }
+    'inspector': {
+        '0': 'Discard', '1': 'Premium', '2': 'Ugly', '3': 'unripe',
+        'class0': 'Discard', 'class1': 'Premium', 'class2': 'Ugly', 'class3': 'unripe'
+    },
+    'disease': {
+        '0': 'Early Blight', '1': 'Healthy', '2': 'Late Blight', '3': 'Leaf Miner', '4': 'Leaf Mold', '5': 'Mosaic Virus', '6': 'Septoria', '7': 'Spider Mites', '8': 'Yellow Leaf Curl Virus',
+        'class0': 'Early Blight', 'class1': 'Healthy', 'class2': 'Late Blight', 'class3': 'Leaf Miner', 'class4': 'Leaf Mold', 'class5': 'Mosaic Virus', 'class6': 'Septoria', 'class7': 'Spider Mites', 'class8': 'Yellow Leaf Curl Virus'
+    },
+    'quality': {
+        '0': 'anthracnose', '1': 'blossom_end_rot', '2': 'brown_rugose', '3': 'fruit_cracking', '4': 'half_ripe', '5': 'mold', '6': 'ripe', '7': 'rotten', '8': 'sunscald', '9': 'unripe',
+        'class0': 'anthracnose', 'class1': 'blossom_end_rot', 'class2': 'brown_rugose', 'class3': 'fruit_cracking', 'class4': 'half_ripe', 'class5': 'mold', 'class6': 'ripe', 'class7': 'rotten', 'class8': 'sunscald', 'class9': 'unripe'
+    },
+    'seg': {
+        '0': 'tomato', '1': 'tom_fruit_breaker_poly', '2': 'tom_fruit_pink_poly', '3': 'tom_fruit_red_poly',
+        'class0': 'tomato', 'class1': 'tom_fruit_breaker_poly', 'class2': 'tom_fruit_pink_poly', 'class3': 'tom_fruit_red_poly'
+    }
 };
 
 // [2] 영문 이름 -> 한글 라벨
