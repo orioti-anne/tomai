@@ -73,7 +73,9 @@ def _run_vision(image_or_video, shot_type, is_image=False):
     disease_conf = {}
     inspector_total = {}
     seg_total = {}
-    tracked_ids = set()
+    tracked_ids_inspector = set()
+    tracked_ids_quality = set()
+    tracked_ids_disease = set()
 
     for frame in frames:
         # 1. 출하 선별 모드
@@ -82,9 +84,9 @@ def _run_vision(image_or_video, shot_type, is_image=False):
             if res.boxes.id is not None:
                 for box, track_id in zip(res.boxes, res.boxes.id):
                     tid = int(track_id)
-                    if tid in tracked_ids:
+                    if tid in tracked_ids_inspector:
                         continue
-                    tracked_ids.add(tid)
+                    tracked_ids_inspector.add(tid)
                     cls = res.names[int(box.cls)]
                     conf = float(box.conf)
                     if cls == 'Discard' and conf < 0.85:
@@ -100,19 +102,40 @@ def _run_vision(image_or_video, shot_type, is_image=False):
 
         # 2. 재배 분석 모드
         elif shot_type in ('wide', 'zoom'):
-            q = quality_model(frame, conf=0.5, verbose=False)[0]
-            for box in q.boxes:
-                cls = q.names[int(box.cls)]
-                quality_total[cls] = quality_total.get(cls, 0) + 1
+            q = quality_model.track(frame, conf=0.5, persist=True, verbose=False)[0]
+            if q.boxes.id is not None:
+                for box, track_id in zip(q.boxes, q.boxes.id):
+                    tid = int(track_id)
+                    if tid in tracked_ids_quality:
+                        continue
+                    tracked_ids_quality.add(tid)
+                    cls = q.names[int(box.cls)]
+                    quality_total[cls] = quality_total.get(cls, 0) + 1
+            else:
+                for box in q.boxes:
+                    cls = q.names[int(box.cls)]
+                    quality_total[cls] = quality_total.get(cls, 0) + 1
 
         if shot_type == 'zoom':
-            d = disease_model(frame, conf=0.5, verbose=False)[0]
-            for box in d.boxes:
-                cls = d.names[int(box.cls)]
-                if cls == 'Healthy':
-                    continue
-                disease_total[cls] = disease_total.get(cls, 0) + 1
-                disease_conf.setdefault(cls, []).append(float(box.conf))
+            d = disease_model.track(frame, conf=0.5, persist=True, verbose=False)[0]
+            if d.boxes.id is not None:
+                for box, track_id in zip(d.boxes, d.boxes.id):
+                    tid = int(track_id)
+                    if tid in tracked_ids_disease:
+                        continue
+                    tracked_ids_disease.add(tid)
+                    cls = d.names[int(box.cls)]
+                    if cls == 'Healthy':
+                        continue
+                    disease_total[cls] = disease_total.get(cls, 0) + 1
+                    disease_conf.setdefault(cls, []).append(float(box.conf))
+            else:
+                for box in d.boxes:
+                    cls = d.names[int(box.cls)]
+                    if cls == 'Healthy':
+                        continue
+                    disease_total[cls] = disease_total.get(cls, 0) + 1
+                    disease_conf.setdefault(cls, []).append(float(box.conf))
 
             s = seg_model(frame, conf=0.3, verbose=False)[0]
             if s.masks is not None:
