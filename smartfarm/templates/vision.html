@@ -471,7 +471,7 @@ async function analyzeVision() {
         document.getElementById('dropZone').classList.remove('border-green-400', 'bg-green-50');
 
         renderResult(data);
-        if (analysisMode === 'farm') loadHistory();
+        loadHistory();
 
         showVideoState('videoGenerating');
         document.getElementById('videoStatus').textContent = '생성 중...';
