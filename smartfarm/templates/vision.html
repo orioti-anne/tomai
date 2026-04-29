@@ -10,10 +10,10 @@
                 <i data-lucide="scan-eye" class="w-6 h-6 text-green-600"></i>
                 AI Vision
             </h2>
-            <p class="text-slate-500 mt-1">영상을 업로드하여 과실 상태를 AI로 분석합니다.</p>
+            <p class="text-slate-500 mt-1">AI 영상 분석으로 생산 추적에서 상품 감별까지</p>
         </div>
 
-        <div class="flex items-center gap-2">
+        <div id="cultSelectWrapper" class="flex items-center gap-2">
             <label class="text-sm font-semibold text-slate-600 whitespace-nowrap">재배명</label>
             <select id="cultSelect" onchange="onCultChange(this.value)"
                 class="bg-white border border-slate-200 text-slate-700 text-sm rounded-xl px-4 py-2.5 shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500">
@@ -34,37 +34,58 @@
         <div class="lg:col-span-1">
             <div class="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 space-y-5 sticky top-24">
 
-                <!-- 구역명 -->
+                <!-- 분석 모드 선택 -->
                 <div>
-                    <label class="block text-xs text-slate-400 font-bold mb-2">구역명</label>
-                    <select id="zoneSelect" onchange="onZoneSelect(this.value)"
-                        class="w-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 rounded-xl px-4 py-3 outline-none focus:border-green-400 transition-colors mb-2">
-                        <option value="">구역 선택 또는 직접 입력</option>
-                    </select>
-                    <input type="text" id="zoneInput" placeholder="새 구역명 직접 입력"
-                        class="w-full bg-slate-50 border border-slate-200 text-sm text-slate-700 rounded-xl px-4 py-3 outline-none focus:border-green-400 transition-colors">
-                </div>
-
-                <!-- 촬영 유형 -->
-                <div>
-                    <label class="block text-xs text-slate-400 font-bold mb-2">촬영 유형</label>
+                    <label class="block text-xs text-slate-400 font-bold mb-2">분석 모드</label>
                     <div class="flex gap-2">
-                        <button id="btnWide" onclick="setShotType('wide')"
-                            class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600">
-                            <i data-lucide="video" class="w-4 h-4"></i>
-                            구역 wide
+                        <button id="btnModeFarm" onclick="setAnalysisMode('farm')"
+                            class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-green-400 bg-green-50 text-green-600">
+                            <i data-lucide="sprout" class="w-4 h-4"></i>
+                            재배 분석
                         </button>
-                        <button id="btnZoom" onclick="setShotType('zoom')"
+                        <button id="btnModeInspector" onclick="setAnalysisMode('inspector')"
                             class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500">
-                            <i data-lucide="zoom-in" class="w-4 h-4"></i>
-                            근접 zoom
+                            <i data-lucide="package-check" class="w-4 h-4"></i>
+                            출하 선별
                         </button>
                     </div>
-                    <div id="shotTypeGuide" class="mt-2 px-3 py-2 bg-blue-50/50 rounded-lg border border-blue-100">
-                        <p id="guideText" class="text-[11px] text-slate-500 leading-relaxed font-medium">
-                            <i data-lucide="info" class="w-3 h-3 inline-block mr-1 mb-0.5"></i>
-                            <span>전체 품질 분포 분석에 최적화되어 있습니다.</span>
-                        </p>
+                </div>
+
+                <!-- 재배 분석 전용 UI -->
+                <div id="farmModeUI" class="space-y-5">
+
+                    <!-- 구역명 -->
+                    <div>
+                        <label class="block text-xs text-slate-400 font-bold mb-2">구역명</label>
+                        <select id="zoneSelect" onchange="onZoneSelect(this.value)"
+                            class="w-full bg-slate-50 border border-slate-200 text-sm font-bold text-slate-700 rounded-xl px-4 py-3 outline-none focus:border-green-400 transition-colors mb-2">
+                            <option value="">구역 선택 또는 직접 입력</option>
+                        </select>
+                        <input type="text" id="zoneInput" placeholder="새 구역명 직접 입력"
+                            class="w-full bg-slate-50 border border-slate-200 text-sm text-slate-700 rounded-xl px-4 py-3 outline-none focus:border-green-400 transition-colors">
+                    </div>
+
+                    <!-- 촬영 유형 -->
+                    <div>
+                        <label class="block text-xs text-slate-400 font-bold mb-2">촬영 유형</label>
+                        <div class="flex gap-2">
+                            <button id="btnWide" onclick="setShotType('wide')"
+                                class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600">
+                                <i data-lucide="video" class="w-4 h-4"></i>
+                                구역 wide
+                            </button>
+                            <button id="btnZoom" onclick="setShotType('zoom')"
+                                class="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500">
+                                <i data-lucide="zoom-in" class="w-4 h-4"></i>
+                                근접 zoom
+                            </button>
+                        </div>
+                        <div id="shotTypeGuide" class="mt-2 px-3 py-2 bg-blue-50/50 rounded-lg border border-blue-100">
+                            <p id="guideText" class="text-[11px] text-slate-500 leading-relaxed font-medium">
+                                <i data-lucide="info" class="w-3 h-3 inline-block mr-1 mb-0.5"></i>
+                                <span>전체 품질 분포 분석에 최적화되어 있습니다.</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -192,6 +213,17 @@
 
                 </div>
 
+                <!-- 출하 선별 결과 -->
+                <div id="inspectorResult" class="hidden bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <div class="w-8 h-8 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
+                            <i data-lucide="package-check" class="w-4 h-4"></i>
+                        </div>
+                        <h4 class="text-sm font-bold text-slate-800">출하 선별 결과</h4>
+                    </div>
+                    <div id="inspectorContent" class="space-y-3"></div>
+                </div>
+
                 <div id="diseaseResult" class="hidden bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6">
                     <div class="flex items-center gap-3 mb-5">
                         <div class="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center text-red-500">
@@ -227,6 +259,7 @@
 let selectedCultId = {{ selected_cult.cult_id if selected_cult else 'null' }};
 let videoFile = null;
 let shotType = 'wide';
+let analysisMode = 'farm'; // 'farm' | 'inspector'
 let qualityChartInstance = null;
 let segmentChartInstance = null;
 let pollingTimer = null;
@@ -262,19 +295,46 @@ const QUALITY_COLOR_MAP = {
     'brown_rugose':    '#8b4513',
 };
 
+const INSPECTOR_COLOR_MAP = {
+    'Premium': '#22c55e',
+    'Ugly':    '#f59e0b',
+    'Discard': '#ef4444',
+};
+
+const INSPECTOR_LABEL = {
+    'Premium': '상품',
+    'Ugly':    '못난이',
+    'Discard': '폐기',
+};
+
 const SEG_LABEL = {
     'tom_fruit_breaker_poly': 'Green',
     'tom_fruit_pink_poly':    'Pink',
     'tom_fruit_red_poly':     'Red'
 };
 
-const SEG_COLORS = ['#32cd32', '#ec4899', '#ef4444'];
-
 const SEG_NAME_MAP = {
     'tom_fruit_breaker_poly': 'Green',
     'tom_fruit_pink_poly':    'Pink',
     'tom_fruit_red_poly':     'Red'
 };
+
+function setAnalysisMode(mode) {
+    analysisMode = mode;
+    const farmUI = document.getElementById('farmModeUI');
+
+    if (mode === 'farm') {
+        document.getElementById('btnModeFarm').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-green-400 bg-green-50 text-green-600';
+        document.getElementById('btnModeInspector').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
+        farmUI.classList.remove('hidden');
+    } else {
+        document.getElementById('btnModeInspector').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600';
+        document.getElementById('btnModeFarm').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
+        farmUI.classList.add('hidden');
+    }
+    clearResults();
+    showVideoState('videoPlaceholder');
+}
 
 function onCultChange(val) {
     selectedCultId = val;
@@ -293,18 +353,14 @@ function onCultChange(val) {
 function onZoneSelect(val) {
     const zoneInput = document.getElementById('zoneInput');
     zoneInput.value = val;
-    if (val === "") {
-        zoneInput.focus();
-    }
+    if (val === "") zoneInput.focus();
 }
+
 document.getElementById('zoneInput').addEventListener('input', function() {
     const zoneSelect = document.getElementById('zoneSelect');
     const exists = Array.from(zoneSelect.options).some(opt => opt.value === this.value);
-    if (!exists) {
-        zoneSelect.value = "";
-    }
+    if (!exists) zoneSelect.value = "";
 });
-
 
 function setShotType(type) {
     shotType = type;
@@ -314,13 +370,11 @@ function setShotType(type) {
     if (type === 'wide') {
         document.getElementById('btnWide').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-blue-400 bg-blue-50 text-blue-600';
         document.getElementById('btnZoom').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
-
         guideEl.textContent = "전체 품질 분포 분석에 최적화되어 있습니다.";
         guideBox.className = "mt-2 px-3 py-2 bg-blue-50/50 rounded-lg border border-blue-100 transition-all duration-300";
     } else {
         document.getElementById('btnZoom').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-purple-400 bg-purple-50 text-purple-600';
         document.getElementById('btnWide').className = 'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-bold transition-all border-slate-200 bg-white text-slate-500';
-
         guideEl.textContent = "과실 성장과 잎 질병 유무를 정밀 진단합니다.";
         guideBox.className = "mt-2 px-3 py-2 bg-purple-50/50 rounded-lg border border-purple-100 transition-all duration-300";
     }
@@ -372,46 +426,52 @@ async function deleteSession(sessionId) {
     } catch(e) {}
 }
 
-
 async function analyzeVision() {
+    if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
     if (!selectedCultId) { alert('재배를 선택해주세요.'); return; }
 
-    const zoneName = document.getElementById('zoneInput').value.trim();
-    if (!zoneName) {
-        alert('분석할 구역명을 입력하거나 선택해주세요.\n(예: A-1구역, 온실 1번 등)');
-        document.getElementById('zoneInput').focus();
-        return;
+    if (analysisMode === 'farm') {
+        const zoneName = document.getElementById('zoneInput').value.trim();
+        if (!zoneName) {
+            alert('분석할 구역명을 입력하거나 선택해주세요.');
+            document.getElementById('zoneInput').focus();
+            return;
+        }
     }
-
-
-    if (!videoFile) { alert('파일을 업로드해주세요.'); return; }
 
     clearResults();
     showVideoState('analysisLoading');
-    document.getElementById('resultSection').classList.add('hidden');
     document.getElementById('videoStatus').textContent = '';
     if (pollingTimer) clearInterval(pollingTimer);
 
     const formData = new FormData();
-    formData.append('shot_type', shotType);
     formData.append('image', videoFile);
-    formData.append('zone_name', document.getElementById('zoneInput').value);
+    formData.append('analysis_mode', analysisMode);
+
+    if (analysisMode === 'farm') {
+        formData.append('shot_type', shotType);
+        formData.append('zone_name', document.getElementById('zoneInput').value);
+    } else {
+        formData.append('zone_name', '검수구역');
+    }
+
+    const cultId = selectedCultId;
 
     try {
-        const res = await fetch(`/vision/analyze/${selectedCultId}`, {
+        const res = await fetch(`/vision/analyze/${cultId}`, {
             method: 'POST',
             body: formData
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        videoFile = null; // 변수 초기화
-        document.getElementById('videoInput').value = ''; // input 태그 비우기
-        document.getElementById('fileName').classList.add('hidden'); // 파일명 숨기기
-        document.getElementById('dropZone').classList.remove('border-green-400', 'bg-green-50'); // 강조 UI 해제
+        videoFile = null;
+        document.getElementById('videoInput').value = '';
+        document.getElementById('fileName').classList.add('hidden');
+        document.getElementById('dropZone').classList.remove('border-green-400', 'bg-green-50');
 
         renderResult(data);
-        loadHistory();
+        if (analysisMode === 'farm') loadHistory();
 
         showVideoState('videoGenerating');
         document.getElementById('videoStatus').textContent = '생성 중...';
@@ -432,7 +492,7 @@ function startPolling(sessionId) {
                 clearInterval(pollingTimer);
                 showVideoState('videoPlayer', data.video_url, data.is_image);
                 document.getElementById('videoStatus').textContent = '분석 완료';
-                loadHistory();
+                if (analysisMode === 'farm') loadHistory();
             } else if (data.status === 'deleted') {
                 clearInterval(pollingTimer);
                 showVideoState('videoDeleted');
@@ -447,7 +507,9 @@ function clearResults() {
     document.getElementById('qualityResult').classList.add('hidden');
     document.getElementById('segmentResult').classList.add('hidden');
     document.getElementById('diseaseResult').classList.add('hidden');
+    document.getElementById('inspectorResult').classList.add('hidden');
     document.getElementById('diseaseContent').innerHTML = '';
+    document.getElementById('inspectorContent').innerHTML = '';
     if (qualityChartInstance) { qualityChartInstance.destroy(); qualityChartInstance = null; }
     if (segmentChartInstance) { segmentChartInstance.destroy(); segmentChartInstance = null; }
 }
@@ -457,15 +519,53 @@ function renderResult(data) {
     const quality = results.quality || [];
     const segment = results.segment || [];
     const disease = results.disease || [];
-
-    // AI 인사이트
-    const insight = generateInsight(quality, disease, segment, data.shot_type);
-    document.getElementById('insightSection').classList.remove('hidden');
-    document.getElementById('insightText').innerHTML = insight.replace(/\n/g, '<br>');
+    const inspector = results.inspector || [];
 
     document.getElementById('resultSection').classList.remove('hidden');
-<!--    document.getElementById('resultMeta').textContent =-->
-<!--        results.total_frames ? `핵심 프레임 ${results.analyzed_frames}건 정밀 스캔 기반 결과` : '';-->
+
+    // 출하 선별 결과
+    if (inspector.length > 0) {
+        document.getElementById('inspectorResult').classList.remove('hidden');
+        const total = inspector.reduce((s, i) => s + i.count, 0) || 1;
+        document.getElementById('inspectorContent').innerHTML = inspector.map(item => {
+            const ratio = (item.count / total * 100).toFixed(1);
+            const color = INSPECTOR_COLOR_MAP[item.class_name] || '#94a3b8';
+            const label = INSPECTOR_LABEL[item.class_name] || item.class_name;
+            return `
+                <div class="flex items-center justify-between rounded-xl px-4 py-3" style="background:${color}18; border: 1px solid ${color}33">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full" style="background:${color}"></div>
+                        <span class="text-sm font-bold text-slate-700">${label}</span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm font-bold text-slate-700">${item.count}개</p>
+                        <p class="text-xs text-slate-400">${ratio}%</p>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // 출하 선별 인사이트
+        const premium = inspector.find(i => i.class_name === 'Premium');
+        const ugly = inspector.find(i => i.class_name === 'Ugly');
+        const discard = inspector.find(i => i.class_name === 'Discard');
+        const premiumRatio = premium ? (premium.count / (total) * 100).toFixed(1) : 0;
+        const uglyRatio = ugly ? (ugly.count / (total) * 100).toFixed(1) : 0;
+        const discardRatio = discard ? (discard.count / (total) * 100).toFixed(1) : 0;
+
+        let insight = `상품 ${premiumRatio}% · 못난이 ${uglyRatio}% · 폐기 ${discardRatio}%\n`;
+        if (premiumRatio >= 80) insight += `🟢 상품 비율이 높습니다. 출하 가능한 상태입니다.`;
+        else if (discardRatio >= 20) insight += `🔴 폐기 비율이 높습니다. 품질 관리가 필요합니다.`;
+        else insight += `🟡 선별 후 출하를 권장합니다.`;
+
+        document.getElementById('insightSection').classList.remove('hidden');
+        document.getElementById('insightText').innerHTML = insight.replace(/\n/g, '<br>');
+    } else {
+        // 재배 분석 인사이트
+        const insight = generateInsight(quality, disease, segment, data.shot_type);
+        document.getElementById('insightSection').classList.remove('hidden');
+        document.getElementById('insightText').innerHTML = insight.replace(/\n/g, '<br>');
+    }
 
     // 품질 차트
     if (quality.length > 0) {
@@ -606,20 +706,18 @@ function loadHistoryDetail(sessionId) {
             analyzed_frames: 0,
             quality: h.quality || [],
             disease: h.disease || [],
-            segment: h.segment || []
+            segment: h.segment || [],
+            inspector: h.inspector || []
         }
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-
 function generateInsight(quality, disease, segment, shotType) {
-    // 1. 공통 데이터 추출
     const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;
     const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;
     const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;
 
-    // 2. Wide 촬영 유형 분석 (줄바꿈 적용)
     if (shotType === 'wide') {
         const defect = quality.filter(q =>
             ['rotten','blossom_end_rot','fruit_cracking','sunscald','brown_rugose','mold','anthracnose'].includes(q.class_name)
@@ -630,145 +728,40 @@ function generateInsight(quality, disease, segment, shotType) {
         const displayProb = (harvestProb * 100).toFixed(1);
 
         let parts = [];
-
-        // 위험 알림
         if (defect > 0) parts.push(`⚠️ 결함 과실 발견(${defect.toFixed(1)}%) — 구역 관리가 필요합니다.`);
-
-        // 품질 상태별 메시지
         if (ripe >= 80) parts.push(`완숙 비율 ${ripe}%로 수확 적기입니다.`);
         else if (ripe + halfRipe >= 50) parts.push(`완숙/반숙 과실이 50% 이상으로 선별 수확이 가능한 상태입니다.`);
         else if (unripe >= 70) parts.push(`미숙과 비율이 높아 아직 성장 중인 구역입니다.`);
         else parts.push(`전체적인 생육 상태가 안정적입니다.`);
-
-        // 종합 지표
         parts.push(`수확 지수 ${harvestIndex.toFixed(2)} · 수확 필요 확률 ${displayProb}%`);
-
-        // 아이콘 권장사항
         if (harvestProb >= 0.8) parts.push(`🔴 즉시 수확을 권장합니다.`);
         else if (harvestProb >= 0.5) parts.push(`🟡 수확 준비를 시작하세요.`);
         else parts.push(`🟢 현재 상태가 안정적입니다.`);
-
-        // 기존 ' · ' 대신 '\n'으로 변경하여 가독성 확보
         return parts.join('\n');
     }
 
-    // 3. Zoom 촬영 유형 분석 (기존 유지)
     const redSeg = segment.find(s => s.class_name === 'tom_fruit_red_poly');
     const avgSize = redSeg ? redSeg.avg_growth : 0;
     const diseaseCount = disease.length;
-
-    const sizeStatus = avgSize > 90 ? '성숙 ' : avgSize > 70 ? '성장 중기' : '성장 초기';
+    const sizeStatus = avgSize > 90 ? '성숙' : avgSize > 70 ? '성장 중기' : '성장 초기';
     const normalizedSize = Math.min(avgSize / 100, 1);
-
     const harvestIndex = (ripe/100 * 0.8) + (halfRipe/100 * 0.1) + (normalizedSize * 0.1);
     const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));
     const displayProb = (harvestProb * 100).toFixed(1);
 
     let insight = '';
-
     if (diseaseCount > 0) {
         const lossRisk = (diseaseCount * 15 * (unripe/100)).toFixed(1);
         insight += `⚠️ ${diseaseCount}종 질병 감지 · 미숙과 손실 위험 ${lossRisk}%\n`;
     }
-
-    if (avgSize > 0) {
-        insight += `🔍 주요 과실: ${sizeStatus} 단계\n`;
-    }
-
+    if (avgSize > 0) insight += `🔍 주요 과실: ${sizeStatus} 단계\n`;
     const icon = harvestProb >= 0.8 ? '🔴' : harvestProb >= 0.5 ? '🟡' : '🟢';
     insight += `${icon} 수확 지수 ${harvestIndex.toFixed(2)} — `;
-
-    if (harvestProb >= 0.8) {
-        insight += `완숙도가 최상입니다. 수확을 시작하세요. (수확 필요 확률 ${displayProb}%)`;
-    } else if (harvestProb >= 0.5) {
-        insight += `수확 적기에 도달 중입니다. 선별 수확을 준비하세요. (수확 필요 확률 ${displayProb}%)`;
-    } else {
-        insight += `성장 단계입니다. 지속적인 모니터링이 필요합니다. (수확 필요 확률 ${displayProb}%)`;
-    }
-
+    if (harvestProb >= 0.8) insight += `완숙도가 최상입니다. 수확을 시작하세요. (수확 필요 확률 ${displayProb}%)`;
+    else if (harvestProb >= 0.5) insight += `수확 적기에 도달 중입니다. 선별 수확을 준비하세요. (수확 필요 확률 ${displayProb}%)`;
+    else insight += `성장 단계입니다. 지속적인 모니터링이 필요합니다. (수확 필요 확률 ${displayProb}%)`;
     return insight;
 }
-
-<!--function generateInsight(quality, disease, segment, shotType) {-->
-<!--    if (shotType === 'wide') {-->
-<!--        const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;-->
-<!--        const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;-->
-<!--        const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;-->
-<!--        const defect = quality.filter(q =>-->
-<!--            ['rotten','blossom_end_rot','fruit_cracking','sunscald','brown_rugose','mold','anthracnose'].includes(q.class_name)-->
-<!--        ).reduce((sum, q) => sum + q.ratio, 0);-->
-
-<!--        const harvestIndex = (ripe/100 * 0.8) + (halfRipe/100 * 0.2);-->
-<!--        const harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.7)));-->
-<!--        const displayProb = (harvestProb * 100).toFixed(1);-->
-
-<!--        let parts = [];-->
-
-<!--        if (defect >= 10) parts.push(`⚠️ 불량과 비율 ${defect.toFixed(1)}% — 품질 관리가 필요합니다.`);-->
-
-<!--        if (ripe >= 80) {-->
-<!--            parts.push(`완숙 비율 ${ripe}%로 수확 적기입니다.`);-->
-<!--        } else if (ripe >= 50 && halfRipe >= 20) {-->
-<!--            parts.push(`완숙 ${ripe}% · 반숙 ${halfRipe}% — 순차 수확이 가능한 상태입니다.`);-->
-<!--        } else if (halfRipe >= 50) {-->
-<!--            parts.push(`반숙 비율 ${halfRipe}% — 2~3일 내 수확 적기 도달이 예상됩니다.`);-->
-<!--        } else if (unripe >= 70) {-->
-<!--            parts.push(`미숙과 비율 ${unripe}% — 아직 성장 중입니다.`);-->
-<!--        }-->
-
-<!--        parts.push(`수확 지수 ${harvestIndex.toFixed(2)} · 수확 필요 확률 ${displayProb}%`);-->
-
-<!--        if (harvestProb >= 0.8) parts.push(`🔴 수확을 시작하세요.`);-->
-<!--        else if (harvestProb >= 0.5) parts.push(`🟡 수확 준비를 권장합니다.`);-->
-<!--        else parts.push(`🟢 현재 상태가 안정적입니다.`);-->
-
-<!--        return parts.join(' · ');-->
-<!--    }-->
-
-
-<!--    // zoom 분석-->
-<!--    const ripe = quality.find(q => q.class_name === 'ripe')?.ratio || 0;-->
-<!--    const halfRipe = quality.find(q => q.class_name === 'half_ripe')?.ratio || 0;-->
-<!--    const unripe = quality.find(q => q.class_name === 'unripe')?.ratio || 0;-->
-<!--    const redSeg = segment.find(s => s.class_name === 'tom_fruit_red_poly');-->
-<!--    const avgSize = redSeg ? redSeg.avg_growth : 0;-->
-<!--    const diseaseCount = disease.length;-->
-
-<!--    // 가중치-->
-<!--    const w1 = 0.7, w2 = 0.2, w3 = 0.1;-->
-<!--    const normalizedSize = Math.min(avgSize / 100, 1);-->
-
-<!--    // 수확 지수-->
-<!--    let harvestIndex = (ripe/100 * w1) + (halfRipe/100 * w2) + (normalizedSize * w3);-->
-
-<!--    // 수확 시급도 확률 (시그모이드)-->
-<!--    let harvestProb = 1 / (1 + Math.exp(-10 * (harvestIndex - 0.6)));-->
-<!--    let displayProb = (harvestProb * 100).toFixed(1);-->
-
-<!--    let insight = '';-->
-
-<!--    // 질병 위험도-->
-<!--    if (diseaseCount > 0) {-->
-<!--        let lossRisk = (diseaseCount * 0.1 * (1 - ripe/100) * 100).toFixed(1);-->
-<!--        insight += `⚠️ ${diseaseCount}종 질병 감지 · 미숙과 손실 위험 ${lossRisk}%\n`;-->
-<!--    }-->
-
-<!--    // 수확 시급도-->
-<!--    if (harvestProb >= 0.8) {-->
-<!--        insight += `🔴 수확 지수 ${harvestIndex.toFixed(2)} — 완숙도가 높습니다. 수확을 시작하세요. (수확 필요 확률 ${displayProb}%)`;-->
-<!--    } else if (harvestProb >= 0.5) {-->
-<!--        insight += `🟡 수확 지수 ${harvestIndex.toFixed(2)} — 수확 적기가 가까워지고 있습니다. 수확을 준비하세요. (수확 필요 확률 ${displayProb}%)`;-->
-<!--    } else {-->
-<!--        insight += `🟢 수확 지수 ${harvestIndex.toFixed(2)} — 현재 상태가 안정적입니다. 지속적으로 모니터링 해주세요. (수확 필요 확률 ${displayProb}%)`;-->
-<!--    }-->
-
-
-
-<!--    return insight;-->
-<!--}-->
-
-
-
 
 function renderHistory(history) {
     historyData = history;
@@ -799,12 +792,17 @@ function renderHistory(history) {
                             <td class="py-3 px-2 font-medium text-slate-700 whitespace-nowrap text-xs">${h.analyzed_at}</td>
                             <td class="py-3 px-2 text-slate-600 text-xs">${h.zone_name || '-'}</td>
                             <td class="py-3 px-2">
-                                <span class="px-2 py-1 rounded-full text-xs font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':'bg-purple-50 text-purple-600'}">
-                                    ${h.shot_type==='wide'?'Wide':'Zoom'}
+                                <span class="px-2 py-1 rounded-full text-xs font-bold ${
+                                    h.shot_type==='wide' ? 'bg-blue-50 text-blue-600' :
+                                    h.shot_type==='zoom' ? 'bg-purple-50 text-purple-600' :
+                                    'bg-green-50 text-green-600'}">
+                                    ${h.shot_type==='wide' ? 'Wide' : h.shot_type==='zoom' ? 'Zoom' : '선별'}
                                 </span>
                             </td>
                             <td class="py-3 px-2 text-slate-600 text-xs max-w-[180px]">
-                                ${h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join('<br>') : '-'}
+                                ${h.shot_type === 'inspector'
+                                    ? (h.inspector ? h.inspector.map(i=>`${INSPECTOR_LABEL[i.class_name]||i.class_name} ${i.ratio}%`).join('<br>') : '-')
+                                    : (h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join('<br>') : '-')}
                             </td>
                             <td class="py-3 px-2 text-xs">
                                 ${h.shot_type === 'zoom'
@@ -842,8 +840,11 @@ function renderHistory(history) {
                     <div class="flex items-center justify-between">
                         <span class="text-xs text-slate-400">${h.analyzed_at}</span>
                         <div class="flex items-center gap-2">
-                            <span class="px-2 py-1 rounded-full text-xs font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':'bg-purple-50 text-purple-600'}">
-                                ${h.shot_type==='wide'?'Wide':'Zoom'}
+                            <span class="px-2 py-1 rounded-full text-xs font-bold ${
+                                h.shot_type==='wide' ? 'bg-blue-50 text-blue-600' :
+                                h.shot_type==='zoom' ? 'bg-purple-50 text-purple-600' :
+                                'bg-green-50 text-green-600'}">
+                                ${h.shot_type==='wide' ? 'Wide' : h.shot_type==='zoom' ? 'Zoom' : '선별'}
                             </span>
                             ${h.video_path ? `<i data-lucide="${h.video_path.match(/\.(jpg|jpeg|png)$/i) ? 'image' : 'play-circle'}" class="w-4 h-4 text-green-600"></i>` : ''}
                             <button onclick="event.stopPropagation(); deleteSession(${h.session_id})"
@@ -857,8 +858,12 @@ function renderHistory(history) {
                         <span class="text-xs font-bold text-slate-700">${h.zone_name||'-'}</span>
                     </div>
                     <div>
-                        <span class="text-xs text-slate-400 block mb-1">품질</span>
-                        <span class="text-xs text-slate-600">${h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join(' · ') : '-'}</span>
+                        <span class="text-xs text-slate-400 block mb-1">${h.shot_type === 'inspector' ? '선별 결과' : '품질'}</span>
+                        <span class="text-xs text-slate-600">
+                            ${h.shot_type === 'inspector'
+                                ? (h.inspector ? h.inspector.map(i=>`${INSPECTOR_LABEL[i.class_name]||i.class_name} ${i.ratio}%`).join(' · ') : '-')
+                                : (h.quality ? h.quality.map(q=>`${QUALITY_LABEL[q.class_name]||q.class_name} ${q.ratio}%`).join(' · ') : '-')}
+                        </span>
                     </div>
                     <div>
                         <span class="text-xs text-slate-400 block mb-1">질병</span>

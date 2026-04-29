@@ -13,31 +13,33 @@ bp = Blueprint('vision', __name__, url_prefix='/vision')
 _disease_model = None
 _quality_model = None
 _seg_model = None
-
+_inspector_model = None
 
 def get_models():
-    global _disease_model, _quality_model, _seg_model
+    global _disease_model, _quality_model, _seg_model, _inspector_model
     if _disease_model is None:
         from ultralytics import YOLO
         _DL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'dl', 'models')
         _disease_model = YOLO(os.path.join(_DL_DIR, 'disease_best.pt'))
         _quality_model = YOLO(os.path.join(_DL_DIR, 'quality_best.pt'))
         _seg_model = YOLO(os.path.join(_DL_DIR, 'seg_best.pt'))
+        _inspector_model = YOLO(os.path.join(_DL_DIR, 'inspector_best.pt'))
 
         # M4 MPS GPU 사용
         try:
             _disease_model.to('mps')
             _quality_model.to('mps')
             _seg_model.to('mps')
+            _inspector_model.to('mps')
             print("[VISION] MPS GPU 사용")
         except Exception as e:
             print(f"[VISION] MPS 사용 불가, CPU 사용: {e}")
 
-    return _disease_model, _quality_model, _seg_model
+    return _disease_model, _quality_model, _seg_model, _inspector_model
 
 
 def _run_vision(image_or_video, shot_type, is_image=False):
-    disease_model, quality_model, seg_model = get_models()
+    disease_model, quality_model, seg_model, inspector_model = get_models()
 
     if is_image:
         import numpy as np
@@ -69,10 +71,19 @@ def _run_vision(image_or_video, shot_type, is_image=False):
     quality_total = {}
     disease_total = {}
     disease_conf = {}
+    inspector_total = {}
     seg_total = {}
 
     for frame in frames:
-        if shot_type in ('wide', 'zoom'):
+            # 1. 상품감별(inspector) 모드일 때
+        if shot_type == 'inspector':
+            res = inspector_model(frame, conf=0.4, verbose=False)[0]
+            for box in res.boxes:
+                cls = res.names[int(box.cls)]
+                inspector_total[cls] = inspector_total.get(cls, 0) + 1
+
+            # 2. 생산추적(wide, zoom) 모드일 때
+        elif shot_type in ('wide', 'zoom'):
             q = quality_model(frame, conf=0.5, verbose=False)[0]
             for box in q.boxes:
                 cls = q.names[int(box.cls)]
@@ -96,6 +107,10 @@ def _run_vision(image_or_video, shot_type, is_image=False):
 
     results = {}
     q_total = sum(quality_total.values()) or 1
+    results['inspector'] = [
+        {'class_name': k, 'count': v}
+        for k, v in inspector_total.items()
+    ]
     results['quality'] = [
         {'class_name': k, 'count': v, 'ratio': round(v / q_total * 100, 2)}
         for k, v in quality_total.items()
@@ -139,17 +154,19 @@ def _run_vision(image_or_video, shot_type, is_image=False):
 def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path, is_image=False):
     with app.app_context():
         try:
-            disease_model, quality_model, seg_model = get_models()
+            # 1. 4개 모델 모두 로드 (inspector_model 포함)
+            disease_model, quality_model, seg_model, inspector_model = get_models()
 
+            # 색상 및 라벨 설정
             SEG_COLOR = {
                 'tom_fruit_breaker_poly': (0, 255, 128),
-                'tom_fruit_pink_poly':    (147, 20, 255),
-                'tom_fruit_red_poly':     (0, 0, 255),
+                'tom_fruit_pink_poly': (147, 20, 255),
+                'tom_fruit_red_poly': (0, 0, 255),
             }
             SEG_LABEL = {
                 'tom_fruit_breaker_poly': 'Green',
-                'tom_fruit_pink_poly':    'Pink',
-                'tom_fruit_red_poly':     'Red',
+                'tom_fruit_pink_poly': 'Pink',
+                'tom_fruit_red_poly': 'Red',
             }
             QUALITY_COLOR = {
                 'unripe': (50, 205, 50),
@@ -161,22 +178,38 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 'sunscald': (200, 200, 0),
                 'brown_rugose': (30, 60, 120),
             }
+            INSPECTOR_COLOR = {
+                'Premium': (0, 255, 0),  # 녹색
+                'Ugly': (0, 165, 255),  # 주황색
+                'Discard': (0, 0, 255),  # 빨간색
+                'unripe': (255, 255, 0),  # 하늘색
+            }
 
             def draw_text_bg(img, text, pos, scale, color):
                 (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, scale, 1)
                 x, y = pos
-                if y - th - 4 < 0:
-                    y = y + th + 4
-                if x + tw + 4 > img.shape[1]:
-                    x = img.shape[1] - tw - 6
+                if y - th - 4 < 0: y = y + th + 4
+                if x + tw + 4 > img.shape[1]: x = img.shape[1] - tw - 6
                 bg = img.copy()
                 cv2.rectangle(bg, (x, y - th - 4), (x + tw + 4, y + 4), (0, 0, 0), -1)
                 cv2.addWeighted(bg, 0.5, img, 0.5, 0, img)
                 cv2.putText(img, text, (x + 2, y), cv2.FONT_HERSHEY_SIMPLEX, scale, color, 1)
 
+            # 통합된 프레임 처리 함수
             def process_frame(frame):
                 overlay = frame.copy()
 
+                # A. 상품감별(inspector) 모드 시각화
+                if shot_type == 'inspector':
+                    res = inspector_model(frame, conf=0.4, verbose=False)[0]
+                    for box in res.boxes:
+                        cls = res.names[int(box.cls)]
+                        x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+                        color = INSPECTOR_COLOR.get(cls, (200, 200, 200))
+                        cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
+                        draw_text_bg(overlay, f"{cls} {float(box.conf):.2f}", (x1, y1 - 5), 0.4, color)
+
+                # B. 생산추적(wide, zoom) 품질 시각화
                 if shot_type in ('wide', 'zoom'):
                     q = quality_model(frame, conf=0.5, verbose=False)[0]
                     for box in q.boxes:
@@ -184,18 +217,20 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                         x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
                         color = QUALITY_COLOR.get(cls, (200, 200, 200))
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 1)
-                        draw_text_bg(overlay, f"Q:{cls[:4]} {float(box.conf):.2f}", (x1, y2+15), 0.3, color)
+                        draw_text_bg(overlay, f"Q:{cls[:4]} {float(box.conf):.2f}", (x1, y2 + 15), 0.3, color)
 
+                # C. 근접 zoom 전용 (질병 + 세그멘테이션)
                 if shot_type == 'zoom':
+                    # 질병 시각화
                     d = disease_model(frame, conf=0.5, verbose=False)[0]
                     for box in d.boxes:
                         cls = d.names[int(box.cls)]
-                        if cls == 'Healthy':
-                            continue
+                        if cls == 'Healthy': continue
                         x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                        draw_text_bg(overlay, f"D:{cls[:8]}", (x1, y1-8), 0.45, (0, 0, 255))
+                        draw_text_bg(overlay, f"D:{cls[:8]}", (x1, y1 - 8), 0.45, (0, 0, 255))
 
+                    # 세그멘테이션 및 성장도 시각화
                     s = seg_model(frame, conf=0.3, verbose=False)[0]
                     if s.masks is not None:
                         seg_areas = {k: [] for k in SEG_COLOR}
@@ -214,20 +249,21 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                             label = SEG_LABEL.get(cls, cls)
                             area = int(mask.data.sum().item())
                             cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 3)
+
                             if red_avg:
                                 pct = min(area / red_avg * 100, 100)
-                                draw_text_bg(overlay, f"S:{label} {pct:.0f}%", (x1, y1-28), 0.5, color)
+                                draw_text_bg(overlay, f"S:{label} {pct:.0f}%", (x1, y1 - 28), 0.5, color)
                                 bar_w = x2 - x1
-                                cv2.rectangle(overlay, (x1, y2+2), (x2, y2+10), (50, 50, 50), -1)
-                                cv2.rectangle(overlay, (x1, y2+2), (x1+int(bar_w*pct/100), y2+10), color, -1)
+                                cv2.rectangle(overlay, (x1, y2 + 2), (x2, y2 + 10), (50, 50, 50), -1)
+                                cv2.rectangle(overlay, (x1, y2 + 2), (x1 + int(bar_w * pct / 100), y2 + 10), color, -1)
 
                 return cv2.addWeighted(overlay, 0.85, frame, 0.15, 0)
 
+            # 저장 경로 생성
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
             if is_image:
-                # 이미지 단일 프레임 처리
-                import numpy as np
+                # 이미지 처리
                 nparr = np.frombuffer(video_bytes, np.uint8)
                 frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
                 if frame.shape[1] > 640:
@@ -242,11 +278,10 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                     tmp_path = tmp.name
 
                 cap = cv2.VideoCapture(tmp_path)
-                fps = cap.get(cv2.CAP_PROP_FPS) /2
+                fps = cap.get(cv2.CAP_PROP_FPS) / 2  # 원본의 절반 FPS로 저장
 
                 orig_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                 orig_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
                 target_w = 640
                 target_h = int(orig_h * (target_w / orig_w))
 
@@ -255,10 +290,10 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 frame_count = 0
                 while cap.isOpened():
                     ret, frame = cap.read()
-                    if not ret:
-                        break
+                    if not ret: break
                     frame_count += 1
-                    if frame_count % 2 != 0: continue  # 2프레임당 1개만 저장 (용량 50% 삭제)
+                    # 2프레임당 1개만 처리하여 인코딩 속도 향상 및 용량 절감
+                    if frame_count % 2 != 0: continue
 
                     frame_resized = cv2.resize(frame, (target_w, target_h))
                     result = process_frame(frame_resized)
@@ -268,6 +303,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 out.release()
                 os.unlink(tmp_path)
 
+            # DB 상태 업데이트
             from sqlalchemy import text
             with db.engine.begin() as conn:
                 conn.execute(text("""
@@ -277,13 +313,14 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 """), {'path': output_path, 'sid': session_id})
 
         except Exception as e:
-            import traceback
             traceback.print_exc()
             from sqlalchemy import text
             with db.engine.begin() as conn:
                 conn.execute(text("""
                     UPDATE vision_session SET video_status='error' WHERE session_id=:sid
                 """), {'sid': session_id})
+
+
 
 @bp.route('/')
 def index():
@@ -314,7 +351,9 @@ def analyze(cult_id):
     if not g.user:
         return jsonify({"error": "로그인이 필요합니다"}), 401
     try:
-        shot_type = request.form.get('shot_type', 'wide')
+        analysis_mode = request.form.get('analysis_mode', 'farm')  # 'farm' | 'inspector'
+        shot_type = request.form.get('shot_type', 'wide') if analysis_mode == 'farm' else 'inspector'
+
         if 'image' not in request.files:
             return jsonify({"error": "이미지가 없습니다"}), 400
 
@@ -337,6 +376,17 @@ def analyze(cult_id):
                 'zone_name': request.form.get('zone_name', '')
             })
             session_id = row.fetchone()[0]
+
+            # inspector 결과 저장
+            inspector_list = vision_results.get('inspector', [])
+            if inspector_list:
+                total_count = sum(i['count'] for i in inspector_list) or 1
+                for i in inspector_list:
+                    ratio = round(i['count'] / total_count * 100, 2)
+                    conn.execute(text("""
+                        INSERT INTO vision_inspector (session_id, class_name, count, ratio)
+                        VALUES (:sid, :cls, :cnt, :ratio)
+                    """), {'sid': session_id, 'cls': i['class_name'], 'cnt': i['count'], 'ratio': ratio})
 
             for q in vision_results.get('quality', []):
                 conn.execute(text("""
@@ -441,11 +491,15 @@ def history(cult_id):
                        json_agg(DISTINCT jsonb_build_object(
                            'class_name', sg.class_name, 'count', sg.count,
                            'avg_growth', sg.avg_growth
-                       )) FILTER (WHERE sg.id IS NOT NULL) as segment
+                       )) FILTER (WHERE sg.id IS NOT NULL) as segment,
+                       json_agg(DISTINCT jsonb_build_object(
+                           'class_name', ins.class_name, 'count', ins.count, 'ratio', ins.ratio
+                       )) FILTER (WHERE ins.id IS NOT NULL) as inspector
                 FROM vision_session s
                 LEFT JOIN vision_quality q ON s.session_id = q.session_id
                 LEFT JOIN vision_disease d ON s.session_id = d.session_id
                 LEFT JOIN vision_segment sg ON s.session_id = sg.session_id
+                LEFT JOIN vision_inspector ins ON s.session_id = ins.session_id
                 WHERE s.cult_id = :cult_id
                 GROUP BY s.session_id
                 ORDER BY s.analyzed_at DESC
@@ -462,7 +516,8 @@ def history(cult_id):
                     'video_path': row.video_path or '',
                     'quality': row.quality or [],
                     'disease': row.disease or [],
-                    'segment': row.segment or []
+                    'segment': row.segment or [],
+                    'inspector': row.inspector or []
                 })
 
         return jsonify({'cult_id': cult_id, 'history': history}), 200
