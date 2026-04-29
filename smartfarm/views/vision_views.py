@@ -6,36 +6,34 @@ import numpy as np
 import tempfile
 import os
 import threading
+import torch
+import traceback
 
 bp = Blueprint('vision', __name__, url_prefix='/vision')
 
-# 모델 지연 로딩
+device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+
 _disease_model = None
 _quality_model = None
 _seg_model = None
 _inspector_model = None
+_model_lock = threading.Lock()
+
 
 def get_models():
     global _disease_model, _quality_model, _seg_model, _inspector_model
+
     if _disease_model is None:
-        from ultralytics import YOLO
-        _DL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'dl', 'models')
+        with _model_lock:
+            if _disease_model is None:  # double-check
+                from ultralytics import YOLO
 
-        _disease_model = YOLO(os.path.join(_DL_DIR, 'disease_best.mlpackage'))
-        _quality_model = YOLO(os.path.join(_DL_DIR, 'quality_best.mlpackage'))
-        _seg_model = YOLO(os.path.join(_DL_DIR, 'seg_best.mlpackage'))
-        _inspector_model = YOLO(os.path.join(_DL_DIR, 'inspector_best.mlpackage'))
+                _DL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'dl', 'models')
 
-        _inspector_model.overrides['names'] = {0: 'Discard', 1: 'Premium', 2: 'Ugly', 3: 'unripe'}
-        _disease_model.overrides['names'] = {0: 'Early Blight', 1: 'Healthy', 2: 'Late Blight', 3: 'Leaf Miner',
-                                             4: 'Leaf Mold', 5: 'Mosaic Virus', 6: 'Septoria', 7: 'Spider Mites',
-                                             8: 'Yellow Leaf Curl Virus'}
-        _quality_model.overrides['names'] = {0: 'anthracnose', 1: 'blossom_end_rot', 2: 'brown_rugose',
-                                             3: 'fruit_cracking', 4: 'half_ripe', 5: 'mold', 6: 'ripe', 7: 'rotten',
-                                             8: 'sunscald', 9: 'unripe'}
-        _seg_model.overrides['names'] = {0: 'tomato', 1: 'tom_fruit_breaker_poly', 2: 'tom_fruit_pink_poly',
-                                         3: 'tom_fruit_red_poly'}
-
+                _disease_model = YOLO(os.path.join(_DL_DIR, 'disease_best.pt'))
+                _quality_model = YOLO(os.path.join(_DL_DIR, 'quality_best.pt'))
+                _seg_model = YOLO(os.path.join(_DL_DIR, 'seg_best.pt'))
+                _inspector_model = YOLO(os.path.join(_DL_DIR, 'inspector_best.pt'))
 
     return _disease_model, _quality_model, _seg_model, _inspector_model
 
@@ -82,7 +80,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
     for frame in frames:
         # 1. 출하 선별 모드
         if shot_type == 'inspector':
-            res = inspector_model.track(frame, conf=0.4, persist=True, verbose=False)[0]
+            res = inspector_model.track(frame, conf=0.4, persist=True, verbose=False, device=device)[0]
             if res.boxes.id is not None:
                 for box, track_id in zip(res.boxes, res.boxes.id):
                     tid = int(track_id)
@@ -104,7 +102,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
 
         # 2. 재배 분석 모드
         elif shot_type in ('wide', 'zoom'):
-            q = quality_model.track(frame, conf=0.5, persist=True, verbose=False)[0]
+            q = quality_model.track(frame, conf=0.5, persist=True, verbose=False, device=device)[0]
             if q.boxes.id is not None:
                 for box, track_id in zip(q.boxes, q.boxes.id):
                     tid = int(track_id)
@@ -119,7 +117,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                     quality_total[cls] = quality_total.get(cls, 0) + 1
 
         if shot_type == 'zoom':
-            d = disease_model.track(frame, conf=0.5, persist=True, verbose=False)[0]
+            d = disease_model.track(frame, conf=0.5, persist=True, verbose=False, device=device)[0]
             if d.boxes.id is not None:
                 for box, track_id in zip(d.boxes, d.boxes.id):
                     tid = int(track_id)
@@ -139,7 +137,7 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                     disease_total[cls] = disease_total.get(cls, 0) + 1
                     disease_conf.setdefault(cls, []).append(float(box.conf))
 
-            s = seg_model(frame, conf=0.3, verbose=False)[0]
+            s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
             if s.masks is not None:
                 for box, mask in zip(s.boxes, s.masks):
                     cls = s.names[int(box.cls)]
@@ -241,7 +239,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
 
                 # A. 상품감별(inspector) 모드 시각화
                 if shot_type == 'inspector':
-                    res = inspector_model(frame, conf=0.4, verbose=False)[0]
+                    res = inspector_model(frame, conf=0.4, verbose=False, device=device)[0]
                     for box in res.boxes:
                         cls = res.names[int(box.cls)]
                         conf = float(box.conf)
@@ -254,7 +252,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
 
                 # B. 생산추적(wide, zoom) 품질 시각화
                 if shot_type in ('wide', 'zoom'):
-                    q = quality_model(frame, conf=0.5, verbose=False)[0]
+                    q = quality_model(frame, conf=0.5, verbose=False, device=device)[0]
                     for box in q.boxes:
                         cls = q.names[int(box.cls)]
                         x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
@@ -265,7 +263,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 # C. 근접 zoom 전용 (질병 + 세그멘테이션)
                 if shot_type == 'zoom':
                     # 질병 시각화
-                    d = disease_model(frame, conf=0.5, verbose=False)[0]
+                    d = disease_model(frame, conf=0.5, verbose=False, device=device)[0]
                     for box in d.boxes:
                         cls = d.names[int(box.cls)]
                         if cls == 'Healthy': continue
@@ -274,7 +272,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                         draw_text_bg(overlay, f"D:{cls[:8]}", (x1, y1 - 8), 0.45, (0, 0, 255))
 
                     # 세그멘테이션 및 성장도 시각화
-                    s = seg_model(frame, conf=0.3, verbose=False)[0]
+                    s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
                     if s.masks is not None:
                         seg_areas = {k: [] for k in SEG_COLOR}
                         for box, mask in zip(s.boxes, s.masks):
@@ -583,6 +581,7 @@ def delete_session(session_id):
                 os.remove(row.video_path)
 
             # DB 삭제
+            conn.execute(text("DELETE FROM vision_inspector WHERE session_id=:sid"), {'sid': session_id})
             conn.execute(text("DELETE FROM vision_quality WHERE session_id=:sid"), {'sid': session_id})
             conn.execute(text("DELETE FROM vision_disease WHERE session_id=:sid"), {'sid': session_id})
             conn.execute(text("DELETE FROM vision_segment WHERE session_id=:sid"), {'sid': session_id})
