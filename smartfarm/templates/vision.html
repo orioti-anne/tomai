@@ -406,7 +406,7 @@ function renderHistory(history) {
     }
 
     el.innerHTML = `
-        <div class="hidden md:block overflow-x-auto -mx-2">
+        <div class="hidden lg:block overflow-x-auto -mx-2">
             <table class="w-full text-sm min-w-[800px]">
                 <thead>
                     <tr class="text-xs text-slate-400 font-bold border-b border-slate-100">
@@ -443,7 +443,7 @@ function renderHistory(history) {
                 </tbody>
             </table>
         </div>
-        <div class="md:hidden space-y-3">
+        <div class="lg:hidden space-y-3">
             ${history.map(h => {
                 const isInspector = h.shot_type === 'inspector';
                 const resList = isInspector ? (h.inspector || []) : (h.quality || []);
@@ -698,7 +698,7 @@ async function analyzeVision() {
     fd.append('image', videoFile);
     fd.append('analysis_mode', analysisMode);
     fd.append('shot_type', shotType);
-    fd.append('zone_name', analysisMode === 'farm' ? document.getElementById('zoneInput').value : '검수구역');
+    fd.append('zone_name', analysisMode === 'farm' ? document.getElementById('zoneInput').value : '선별구역');
 
     try {
         const r = await fetch(`/vision/analyze/${selectedCultId}`, { method: 'POST', body: fd });
