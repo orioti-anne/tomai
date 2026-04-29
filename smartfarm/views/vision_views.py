@@ -244,6 +244,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                         conf = float(box.conf)
                         if cls == 'Discard' and conf < 0.85:
                             cls = 'Ugly'
+                        x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
                         color = INSPECTOR_COLOR.get(cls, (200, 200, 200))
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
                         draw_text_bg(overlay, f"{cls} {float(box.conf):.2f}", (x1, y1 - 5), 0.4, color)
