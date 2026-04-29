@@ -701,6 +701,9 @@ function loadHistoryDetail(sessionId) {
     const h = historyData.find(x => x.session_id === sessionId);
     if (!h) return;
 
+    document.querySelectorAll('[data-session]').forEach(el => el.classList.remove('bg-green-50'));
+    document.querySelectorAll(`[data-session="${sessionId}"]`).forEach(el => el.classList.add('bg-green-50'));
+
     clearResults();
     playHistoryVideo(h.session_id, h.video_path);
     renderResult({
@@ -792,7 +795,7 @@ function renderHistory(history) {
                 </thead>
                 <tbody class="divide-y divide-slate-50">
                     ${history.map(h => `
-                        <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
+                        <tr class="hover:bg-slate-50 transition-colors cursor-pointer" data-session="${h.session_id}" onclick="loadHistoryDetail(${h.session_id})">
                             <td class="py-3 px-2 font-medium text-slate-700 whitespace-nowrap text-xs">${h.analyzed_at}</td>
                             <td class="py-3 px-2 text-slate-600 text-xs">${h.zone_name || '-'}</td>
                             <td class="py-3 px-2">
@@ -840,7 +843,7 @@ function renderHistory(history) {
         <!-- 모바일 카드 -->
         <div class="md:hidden space-y-3">
             ${history.map(h => `
-                <div class="bg-slate-50 rounded-2xl p-4 space-y-3 cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
+                <div class="bg-slate-50 rounded-2xl p-4 space-y-3 cursor-pointer" data-session="${h.session_id}" onclick="loadHistoryDetail(${h.session_id})">
                     <div class="flex items-center justify-between">
                         <span class="text-xs text-slate-400">${h.analyzed_at}</span>
                         <div class="flex items-center gap-2">
