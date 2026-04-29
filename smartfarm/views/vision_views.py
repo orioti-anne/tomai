@@ -482,7 +482,7 @@ def zones(cult_id):
         with db.engine.connect() as conn:
             result = conn.execute(text("""
                 SELECT DISTINCT zone_name FROM vision_session
-                WHERE cult_id=:cult_id AND zone_name IS NOT NULL AND zone_name != ''
+                WHERE cult_id=:cult_id AND zone_name IS NOT NULL AND zone_name != '' AND shot_type != 'inspector'
                 ORDER BY zone_name
             """), {'cult_id': cult_id})
             zone_list = [row[0] for row in result]
