@@ -256,6 +256,9 @@
 
 {% block script %}
 <script>
+/**
+ * [전역 설정 및 데이터 관리]
+ */
 let selectedCultId = {{ selected_cult.cult_id if selected_cult else 'null' }};
 let videoFile = null;
 let shotType = 'wide';
@@ -265,7 +268,7 @@ let segmentChartInstance = null;
 let pollingTimer = null;
 let historyData = [];
 
-// [1] CoreML 인덱스 -> 영문 이름 매핑
+// [1] CoreML 인덱스 -> 영문 이름 매핑 (사용자 제공 정보 기준)
 const MODEL_MAPS = {
     'inspector': { 'class0': 'Premium', 'class1': 'Ugly', 'class2': 'Discard', 'class3': 'unripe' },
     'disease': { 'class0': 'Early Blight', 'class1': 'Healthy', 'class2': 'Late Blight', 'class3': 'Leaf Miner', 'class4': 'Leaf Mold', 'class5': 'Mosaic Virus', 'class6': 'Septoria', 'class7': 'Spider Mites', 'class8': 'Yellow Leaf Curl Virus' },
@@ -283,7 +286,7 @@ const SEG_NAME_MAP = { 'tom_fruit_breaker_poly': 'Green', 'tom_fruit_pink_poly':
 const QUALITY_COLOR_MAP = { 'unripe': '#32cd32', 'half_ripe': '#ffa500', 'ripe': '#dc143c', 'rotten': '#3c3c3c', 'blossom_end_rot': '#964b00', 'fruit_cracking': '#8b00ff', 'sunscald': '#ffd700', 'brown_rugose': '#8b4513' };
 const INSPECTOR_COLOR_MAP = { 'Premium': '#22c55e', 'Ugly': '#f59e0b', 'Discard': '#ef4444', 'unripe': '#0ea5e9' };
 
-// 번역 헬퍼 함수
+// [번역 유틸리티]
 function getEng(cat, raw) { return (MODEL_MAPS[cat] && MODEL_MAPS[cat][raw]) ? MODEL_MAPS[cat][raw] : raw; }
 function getKor(cat, raw) {
     const eng = getEng(cat, raw);
@@ -294,98 +297,22 @@ function getKor(cat, raw) {
     return eng;
 }
 
-// 분석 이력 렌더링 (전체 복구 버전)
-function renderHistory(history) {
-    historyData = history;
-    const el = document.getElementById('historyContent');
-    if (!history || history.length === 0) { el.innerHTML = '<p class="text-center py-8 text-slate-400">이력이 없습니다.</p>'; return; }
-
-    el.innerHTML = `
-        <div class="hidden md:block overflow-x-auto -mx-2">
-            <table class="w-full text-sm min-w-[640px]">
-                <thead>
-                    <tr class="text-xs text-slate-400 font-bold border-b border-slate-100">
-                        <th class="text-left py-3 px-2">분석일시</th>
-                        <th class="text-left py-3 px-2">구역</th>
-                        <th class="text-left py-3 px-2">유형</th>
-                        <th class="text-left py-3 px-2">품질 결과</th>
-                        <th class="text-left py-3 px-2">질병</th>
-                        <th class="text-left py-3 px-2">평균 사이즈 (완숙 대비)</th>
-                        <th class="text-left py-3 px-2">미디어</th>
-                        <th class="text-left py-3 px-2"></th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-50">
-                    ${history.map(h => {
-                        // 결과 요약 텍스트 (품질 또는 선별)
-                        const resList = h.shot_type === 'inspector' ? (h.inspector || []) : (h.quality || []);
-                        const summary = resList.map(r => `${getKor(h.shot_type === 'inspector' ? 'inspector' : 'quality', r.class_name)} ${r.ratio}%`).join('<br>');
-
-                        // 질병 정보
-                        const diseaseTag = (h.shot_type === 'zoom' && h.disease?.length > 0)
-                            ? `<span class="text-red-500 font-bold">${h.disease.length}종 감지</span>`
-                            : (h.shot_type === 'zoom' ? '<span class="text-green-600 font-bold">이상없음</span>' : '<span class="text-slate-400">-</span>');
-
-                        // 평균 사이즈 (세그멘테이션)
-                        const sizeTag = (h.segment && h.segment.length > 0)
-                            ? h.segment.filter(s => s.avg_growth != null).map(s => `${getKor('seg', s.class_name)} (${s.avg_growth}%)`).join('<br>')
-                            : '-';
-
-                        // 미디어 아이콘
-                        const isImg = h.video_path?.match(/\.(jpg|jpeg|png)$/i);
-                        const mediaIcon = h.video_path ? (isImg ? 'image' : 'play-circle') : 'video-off';
-                        const mediaColor = h.video_path ? 'text-green-600' : 'text-slate-300';
-
-                        return `
-                        <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="loadHistoryDetail(${h.session_id})">
-                            <td class="py-3 px-2 text-xs font-medium text-slate-700">${h.analyzed_at}</td>
-                            <td class="py-3 px-2 text-xs text-slate-600">${h.zone_name || '-'}</td>
-                            <td class="py-3 px-2">
-                                <span class="px-2 py-1 rounded-full text-[10px] font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':h.shot_type==='zoom'?'bg-purple-50 text-purple-600':'bg-green-50 text-green-600'}">
-                                    ${h.shot_type==='wide'?'Wide':h.shot_type==='zoom'?'Zoom':'선별'}
-                                </span>
-                            </td>
-                            <td class="py-3 px-2 text-[11px] text-slate-600">${summary || '-'}</td>
-                            <td class="py-3 px-2 text-xs">${diseaseTag}</td>
-                            <td class="py-3 px-2 text-[11px] text-slate-600">${sizeTag}</td>
-                            <td class="py-3 px-2">
-                                <span class="${mediaColor}"><i data-lucide="${mediaIcon}" class="w-4 h-4"></i></span>
-                            </td>
-                            <td class="py-3 px-2">
-                                <button onclick="event.stopPropagation(); deleteSession(${h.session_id})" class="text-slate-300 hover:text-red-400">
-                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                                </button>
-                            </td>
-                        </tr>`;
-                    }).join('')}
-                </tbody>
-            </table>
-        </div>
-        <div class="md:hidden space-y-3">
-            ${history.map(h => `
-                <div class="bg-slate-50 p-4 rounded-2xl" onclick="loadHistoryDetail(${h.session_id})">
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-[10px] text-slate-400">${h.analyzed_at}</span>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white border border-slate-200">${h.shot_type}</span>
-                    </div>
-                    <p class="text-xs font-bold text-slate-700 mb-1">${h.zone_name || '구역 정보 없음'}</p>
-                    <p class="text-[11px] text-slate-500">${h.shot_type === 'zoom' && h.disease?.length > 0 ? '⚠️ 질병 감지' : '정상 생육'}</p>
-                </div>
-            `).join('')}
-        </div>`;
-    if (window.lucide) lucide.createIcons();
-}
-
-// 결과 차트 렌더링
+/**
+ * 1. 상단 결과 렌더링 (분석 직후 또는 이력 클릭 시)
+ */
 function renderResult(data) {
-    const res = data.results;
+    console.log("Rendering Data:", data);
+    const res = data.results || {};
+    const shotType = data.shot_type || 'wide';
+
     document.getElementById('resultSection').classList.remove('hidden');
 
-    // 1. 선별 결과
-    if (res.inspector && res.inspector.length > 0) {
+    // 출하 선별 결과
+    const inspector = res.inspector || [];
+    if (inspector.length > 0) {
         document.getElementById('inspectorResult').classList.remove('hidden');
-        const total = res.inspector.reduce((s, i) => s + i.count, 0) || 1;
-        document.getElementById('inspectorContent').innerHTML = res.inspector.map(item => {
+        const total = inspector.reduce((s, i) => s + i.count, 0) || 1;
+        document.getElementById('inspectorContent').innerHTML = inspector.map(item => {
             const eng = getEng('inspector', item.class_name);
             const kor = getKor('inspector', item.class_name);
             const color = INSPECTOR_COLOR_MAP[eng] || '#94a3b8';
@@ -393,64 +320,180 @@ function renderResult(data) {
                 <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-full" style="background:${color}"></div><span class="text-sm font-bold">${kor}</span></div>
                 <div class="text-right"><p class="text-sm font-bold">${item.count}개</p><p class="text-xs text-slate-400">${(item.count/total*100).toFixed(1)}%</p></div></div>`;
         }).join('');
+    } else {
+        document.getElementById('inspectorResult').classList.add('hidden');
     }
 
-    // 2. 품질 차트
-    if (res.quality && res.quality.length > 0) {
+    // 품질 결과
+    const quality = res.quality || [];
+    if (quality.length > 0) {
         document.getElementById('qualityResult').classList.remove('hidden');
-        const labels = res.quality.map(q => getKor('quality', q.class_name));
-        const counts = res.quality.map(q => q.count);
-        const colors = res.quality.map(q => QUALITY_COLOR_MAP[getEng('quality', q.class_name)] || '#94a3b8');
+        const labels = quality.map(q => getKor('quality', q.class_name));
+        const counts = quality.map(q => q.count);
+        const colors = quality.map(q => QUALITY_COLOR_MAP[getEng('quality', q.class_name)] || '#94a3b8');
         if (qualityChartInstance) qualityChartInstance.destroy();
         qualityChartInstance = new Chart(document.getElementById('qualityChart'), {
             type: 'doughnut', data: { labels, datasets: [{ data: counts, backgroundColor: colors, borderWidth: 0 }] },
             options: { responsive: true, cutout: '70%', plugins: { legend: { display: false } } }
         });
-        document.getElementById('qualityLegend').innerHTML = res.quality.map((q, i) => `
+        document.getElementById('qualityLegend').innerHTML = quality.map((q, i) => `
             <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-1.5"><div class="w-2.5 h-2.5 rounded-full" style="background:${colors[i]}"></div><span class="text-xs font-medium">${labels[i]}</span></div>
                 <div class="text-right"><span class="text-xs font-bold">${q.count}개</span> <span class="text-xs text-slate-400">(${Math.round(q.ratio)}%)</span></div></div>`).join('');
+    } else {
+        document.getElementById('qualityResult').classList.add('hidden');
     }
 
-    // 3. 세그멘테이션
-    if (res.segment && res.segment.length > 0) {
+    // 사이즈/세그멘테이션
+    const segment = res.segment || [];
+    if (segment.length > 0) {
         document.getElementById('segmentResult').classList.remove('hidden');
         const segCols = { 'tom_fruit_breaker_poly': '#32cd32', 'tom_fruit_pink_poly': '#ec4899', 'tom_fruit_red_poly': '#ef4444' };
         if (segmentChartInstance) segmentChartInstance.destroy();
         segmentChartInstance = new Chart(document.getElementById('segmentChart'), {
             type: 'bar',
             data: {
-                labels: res.segment.map(s => getKor('seg', s.class_name)),
-                datasets: [{ data: res.segment.map(s => s.avg_growth || 0), backgroundColor: res.segment.map(s => segCols[getEng('seg', s.class_name)] || '#94a3b8'), borderRadius: 8 }]
+                labels: segment.map(s => getKor('seg', s.class_name)),
+                datasets: [{ data: segment.map(s => s.avg_growth || 0), backgroundColor: segment.map(s => segCols[getEng('seg', s.class_name)] || '#94a3b8'), borderRadius: 8 }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
+    } else {
+        document.getElementById('segmentResult').classList.add('hidden');
     }
 
-    // 4. 질병
-    if (res.disease && res.disease.length > 0) {
+    // 질병
+    const disease = res.disease || [];
+    if (disease.length > 0) {
         document.getElementById('diseaseResult').classList.remove('hidden');
-        document.getElementById('diseaseContent').innerHTML = res.disease.map(d => `
+        document.getElementById('diseaseContent').innerHTML = disease.map(d => `
             <div class="flex items-center justify-between bg-red-50 rounded-xl px-4 py-3">
                 <div class="flex items-center gap-2"><i data-lucide="alert-triangle" class="w-4 h-4 text-red-500"></i><span class="text-sm font-bold text-red-700">${getKor('disease', d.class_name)}</span></div>
                 <div class="text-right"><p class="text-sm font-bold">${d.count}회</p></div></div>`).join('');
+    } else {
+        document.getElementById('diseaseResult').classList.add('hidden');
     }
 
-    const insight = generateInsight(res.quality||[], res.disease||[], res.segment||[], data.shot_type);
+    // 인사이트 생성
+    const insightText = generateInsight(quality, disease, segment, shotType);
     document.getElementById('insightSection').classList.remove('hidden');
-    document.getElementById('insightText').innerHTML = insight.replace(/\n/g, '<br>');
+    document.getElementById('insightText').innerHTML = insightText.replace(/\n/g, '<br>');
+
     if (window.lucide) lucide.createIcons();
 }
 
-// 나머지 함수들은 동일하게 유지 (analyzeVision, startPolling, loadHistoryDetail 등)
-function generateInsight(q, d, s, type) { return "분석이 완료되었습니다."; } // 요약 버전
-async function loadHistory() { if (!selectedCultId) return; const r = await fetch(`/vision/history/${selectedCultId}`); const data = await r.json(); renderHistory(data.history || []); }
-async function loadZones() { if (!selectedCultId) return; const r = await fetch(`/vision/zones/${selectedCultId}`); const data = await r.json(); const select = document.getElementById('zoneSelect'); select.innerHTML = '<option value="">구역 선택</option>'; (data.zones||[]).forEach(z => select.innerHTML += `<option value="${z}">${z}</option>`); }
+/**
+ * 2. 분석 이력 테이블 렌더링 (8개 항목 완벽 복구)
+ */
+function renderHistory(history) {
+    historyData = history;
+    const el = document.getElementById('historyContent');
+    if (!history || history.length === 0) {
+        el.innerHTML = '<p class="text-center py-8 text-slate-400">이력이 없습니다.</p>';
+        return;
+    }
+
+    el.innerHTML = `
+        <div class="hidden md:block overflow-x-auto -mx-2">
+            <table class="w-full text-sm min-w-[800px]">
+                <thead>
+                    <tr class="text-xs text-slate-400 font-bold border-b border-slate-100">
+                        <th class="text-left py-3 px-2">분석일시</th>
+                        <th class="text-left py-3 px-2">구역</th>
+                        <th class="text-left py-3 px-2">유형</th>
+                        <th class="text-left py-3 px-2">품질 결과</th>
+                        <th class="text-left py-3 px-2">질병</th>
+                        <th class="text-left py-3 px-2">평균 사이즈</th>
+                        <th class="text-left py-3 px-2">미디어</th>
+                        <th class="text-left py-3 px-2"></th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                    ${history.map(h => {
+                        const isInspector = h.shot_type === 'inspector';
+                        const resList = isInspector ? (h.inspector || []) : (h.quality || []);
+                        const summary = resList.slice(0, 2).map(r => `${getKor(isInspector ? 'inspector' : 'quality', r.class_name)} ${r.ratio}%`).join('<br>');
+                        const diseaseTag = (h.shot_type === 'zoom') ? (h.disease?.length > 0 ? `<span class="text-red-500 font-bold">${h.disease.length}종</span>` : '<span class="text-green-600 font-bold">정상</span>') : '-';
+                        const sizeTag = (h.segment && h.segment.length > 0) ? h.segment.filter(s => s.avg_growth != null).map(s => `${getKor('seg', s.class_name)} (${s.avg_growth}%)`).join('<br>') : '-';
+                        const mediaIcon = h.video_path ? (h.video_path.match(/\.(jpg|jpeg|png)$/i) ? 'image' : 'play-circle') : 'video-off';
+                        return `
+                        <tr class="hover:bg-slate-50 transition-colors cursor-pointer" data-session="${h.session_id}" onclick="loadHistoryDetail(${h.session_id})">
+                            <td class="py-3 px-2 text-[11px] font-medium text-slate-700">${h.analyzed_at}</td>
+                            <td class="py-3 px-2 text-xs text-slate-600">${h.zone_name || '-'}</td>
+                            <td class="py-3 px-2"><span class="px-2 py-1 rounded-full text-[10px] font-bold ${h.shot_type==='wide'?'bg-blue-50 text-blue-600':h.shot_type==='zoom'?'bg-purple-50 text-purple-600':'bg-green-50 text-green-600'}">${h.shot_type}</span></td>
+                            <td class="py-3 px-2 text-[10px] leading-tight">${summary || '-'}</td>
+                            <td class="py-3 px-2 text-xs">${diseaseTag}</td>
+                            <td class="py-3 px-2 text-[10px]">${sizeTag}</td>
+                            <td class="py-3 px-2"><span class="${h.video_path?'text-green-600':'text-slate-300'}"><i data-lucide="${mediaIcon}" class="w-4 h-4"></i></span></td>
+                            <td class="py-3 px-2"><button onclick="event.stopPropagation(); deleteSession(${h.session_id})"><i data-lucide="trash-2" class="w-3.5 h-3.5 text-slate-300"></i></button></td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+        <div class="md:hidden space-y-3">
+            ${history.map(h => `<div class="bg-slate-50 p-4 rounded-2xl" onclick="loadHistoryDetail(${h.session_id})">
+                <div class="flex justify-between items-center mb-1"><span class="text-[10px] text-slate-400">${h.analyzed_at}</span><span class="text-[10px] font-bold text-green-600">${h.shot_type}</span></div>
+                <p class="text-xs font-bold text-slate-800">${h.zone_name || '구역 정보 없음'}</p></div>`).join('')}
+        </div>`;
+    if (window.lucide) lucide.createIcons();
+}
+
+/**
+ * 3. 이력 상세 로드 (영상 복구 핵심 로직)
+ */
+function loadHistoryDetail(sid) {
+    const h = historyData.find(x => x.session_id === sid);
+    if (!h) return;
+
+    renderResult({
+        shot_type: h.shot_type,
+        results: { quality: h.quality, disease: h.disease, segment: h.segment, inspector: h.inspector }
+    });
+
+    if (!h.video_path) {
+        showVideoState('videoDeleted');
+    } else {
+        // [수정] video-status를 통해 실제 재생 가능한 URL을 다시 확인합니다.
+        fetch(`/vision/video-status/${sid}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'ready') {
+                    const isImg = data.video_url.match(/\.(jpg|jpeg|png)$/i);
+                    showVideoState('videoPlayer', data.video_url, isImg);
+                    document.getElementById('videoStatus').textContent = '이력 재생 중';
+                } else {
+                    showVideoState('videoDeleted');
+                }
+            }).catch(() => showVideoState('videoDeleted'));
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// [나머지 필수 함수들]
+function generateInsight(quality, disease, segment, shotType) {
+    const findR = (e) => { const f = quality.find(q => getEng('quality', q.class_name) === e); return f ? f.ratio : 0; };
+    const ripe = findR('ripe'), half = findR('half_ripe'), unripe = findR('unripe');
+    if (shotType === 'wide') {
+        const hIdx = (ripe/100 * 0.9) + (half/100 * 0.1);
+        return `완숙 ${ripe}% · 반숙 ${half}% · 미숙 ${unripe}%\n수확 지수 ${hIdx.toFixed(2)}`;
+    }
+    return "생육 분석이 완료되었습니다.";
+}
+
+async function loadZones() { if (!selectedCultId) return; const r = await fetch(`/vision/zones/${selectedCultId}`); const d = await r.json(); const s = document.getElementById('zoneSelect'); s.innerHTML = '<option value="">구역 선택</option>'; (d.zones||[]).forEach(z => s.innerHTML += `<option value="${z}">${z}</option>`); }
+async function loadHistory() { if (!selectedCultId) return; const r = await fetch(`/vision/history/${selectedCultId}`); const d = await r.json(); renderHistory(d.history || []); }
 function onCultChange(v) { selectedCultId = v; loadHistory(); loadZones(); clearResults(); showVideoState('videoPlaceholder'); }
 function onZoneSelect(v) { document.getElementById('zoneInput').value = v; }
 function handleFile(i) { const f = i.files[0]; if(!f) return; videoFile = f; document.getElementById('fileName').classList.remove('hidden'); document.getElementById('fileNameText').textContent = f.name; }
 function clearResults() { document.getElementById('insightSection').classList.add('hidden'); document.getElementById('resultSection').classList.add('hidden'); }
-function showVideoState(st, url, isImg=false) { ['videoPlaceholder','analysisLoading','videoGenerating','videoPlayer','imagePlayer','videoDeleted'].forEach(s => document.getElementById(s).classList.add('hidden')); if (st === 'videoPlayer' && url) { if (isImg) { document.getElementById('imagePlayer').classList.remove('hidden'); document.getElementById('resultImage').src = url; } else { document.getElementById('videoPlayer').classList.remove('hidden'); document.getElementById('videoSource').src = url; document.getElementById('resultVideo').load(); } } else { document.getElementById(st).classList.remove('hidden'); } }
+function showVideoState(st, url, isImg=false) {
+    ['videoPlaceholder','analysisLoading','videoGenerating','videoPlayer','imagePlayer','videoDeleted'].forEach(s => document.getElementById(s).classList.add('hidden'));
+    if (st === 'videoPlayer' && url) {
+        if (isImg) { document.getElementById('imagePlayer').classList.remove('hidden'); document.getElementById('resultImage').src = url; }
+        else { document.getElementById('videoPlayer').classList.remove('hidden'); document.getElementById('videoSource').src = url; document.getElementById('resultVideo').load(); }
+    } else { document.getElementById(st).classList.remove('hidden'); }
+}
 
 async function analyzeVision() {
     if (!videoFile || !selectedCultId) return alert('파일과 재배명을 확인하세요.');
@@ -474,14 +517,6 @@ function startPolling(sid) {
         const d = await r.json();
         if (d.status === 'ready') { clearInterval(pollingTimer); showVideoState('videoPlayer', d.video_url, d.is_image); }
     }, 5000);
-}
-
-function loadHistoryDetail(sid) {
-    const h = historyData.find(x => x.session_id === sid);
-    if (!h) return;
-    renderResult({ shot_type: h.shot_type, results: { quality: h.quality, disease: h.disease, segment: h.segment, inspector: h.inspector } });
-    showVideoState('videoPlayer', h.video_path, h.video_path?.match(/\.(jpg|jpeg|png)$/i));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 document.addEventListener('DOMContentLoaded', () => { loadHistory(); loadZones(); if (window.lucide) lucide.createIcons(); });
