@@ -89,6 +89,9 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                         continue
                     tracked_ids_inspector.add(tid)
                     cls = res.names[int(box.cls)]
+                    conf = float(box.conf)
+                    if cls == 'Discard' and conf < 0.85:
+                        cls = 'Ugly'
                     inspector_total[cls] = inspector_total.get(cls, 0) + 1
             else:
                 for box in res.boxes:
@@ -189,7 +192,6 @@ def _run_vision(image_or_video, shot_type, is_image=False):
 def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path, is_image=False):
     with app.app_context():
         try:
-            # 1. 4개 모델 모두 로드 (inspector_model 포함)
             disease_model, quality_model, seg_model, inspector_model = get_models()
 
             # 색상 및 라벨 설정
@@ -239,7 +241,9 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                     res = inspector_model(frame, conf=0.4, verbose=False)[0]
                     for box in res.boxes:
                         cls = res.names[int(box.cls)]
-                        x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+                        conf = float(box.conf)
+                        if cls == 'Discard' and conf < 0.85:
+                            cls = 'Ugly'
                         color = INSPECTOR_COLOR.get(cls, (200, 200, 200))
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
                         draw_text_bg(overlay, f"{cls} {float(box.conf):.2f}", (x1, y1 - 5), 0.4, color)
