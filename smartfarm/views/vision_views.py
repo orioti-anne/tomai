@@ -20,28 +20,21 @@ def get_models():
     if _disease_model is None:
         from ultralytics import YOLO
         _DL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'dl', 'models')
+
         _disease_model = YOLO(os.path.join(_DL_DIR, 'disease_best.mlpackage'))
         _quality_model = YOLO(os.path.join(_DL_DIR, 'quality_best.mlpackage'))
         _seg_model = YOLO(os.path.join(_DL_DIR, 'seg_best.mlpackage'))
         _inspector_model = YOLO(os.path.join(_DL_DIR, 'inspector_best.mlpackage'))
 
-        # _inspector_model.model.names = {
-        #     0: 'Premium', 1: 'Ugly', 2: 'Discard', 3: 'unripe'
-        # }
-        # _disease_model.model.names = {
-        #     0: 'Early Blight', 1: 'Healthy', 2: 'Late Blight', 3: 'Leaf Miner',
-        #     4: 'Leaf Mold', 5: 'Mosaic Virus', 6: 'Septoria',
-        #     7: 'Spider Mites', 8: 'Yellow Leaf Curl Virus'
-        # }
-        # _quality_model.model.names = {
-        #     0: 'anthracnose', 1: 'blossom_end_rot', 2: 'brown_rugose',
-        #     3: 'fruit_cracking', 4: 'half_ripe', 5: 'mold', 6: 'ripe',
-        #     7: 'rotten', 8: 'sunscald', 9: 'unripe'
-        # }
-        # _seg_model.model.names = {
-        #     0: 'tomato', 1: 'tom_fruit_breaker_poly',
-        #     2: 'tom_fruit_pink_poly', 3: 'tom_fruit_red_poly'
-        # }
+        _inspector_model.overrides['names'] = {0: 'Discard', 1: 'Premium', 2: 'Ugly', 3: 'unripe'}
+        _disease_model.overrides['names'] = {0: 'Early Blight', 1: 'Healthy', 2: 'Late Blight', 3: 'Leaf Miner',
+                                             4: 'Leaf Mold', 5: 'Mosaic Virus', 6: 'Septoria', 7: 'Spider Mites',
+                                             8: 'Yellow Leaf Curl Virus'}
+        _quality_model.overrides['names'] = {0: 'anthracnose', 1: 'blossom_end_rot', 2: 'brown_rugose',
+                                             3: 'fruit_cracking', 4: 'half_ripe', 5: 'mold', 6: 'ripe', 7: 'rotten',
+                                             8: 'sunscald', 9: 'unripe'}
+        _seg_model.overrides['names'] = {0: 'tomato', 1: 'tom_fruit_breaker_poly', 2: 'tom_fruit_pink_poly',
+                                         3: 'tom_fruit_red_poly'}
 
 
     return _disease_model, _quality_model, _seg_model, _inspector_model
