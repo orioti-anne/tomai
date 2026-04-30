@@ -81,6 +81,48 @@ def _run_vision(image_or_video, shot_type, is_image=False):
         # 1. 출하 선별 모드
         if shot_type == 'inspector':
             res = inspector_model.track(frame, conf=0.4, persist=True, verbose=False, device=device)[0]
+
+            # seg 모델로 형태 분석 (circularity, aspect_ratio, solidity)
+            seg_shapes = {}
+            s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
+            if s.masks is not None:
+                for box, mask in zip(s.boxes, s.masks):
+                    x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+                    mask_np = (mask.data[0].cpu().numpy() * 255).astype(np.uint8)
+                    contours, _ = cv2.findContours(mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    if not contours:
+                        continue
+                    cnt = max(contours, key=cv2.contourArea)
+                    area = cv2.contourArea(cnt)
+                    if area < 100:
+                        continue
+                    perimeter = cv2.arcLength(cnt, True)
+                    circularity = (4 * np.pi * area / (perimeter ** 2)) if perimeter > 0 else 1.0
+                    w = x2 - x1
+                    h = y2 - y1
+                    aspect_ratio = w / h if h > 0 else 1.0
+                    hull = cv2.convexHull(cnt)
+                    hull_area = cv2.contourArea(hull)
+                    solidity = area / hull_area if hull_area > 0 else 1.0
+                    # 형태 기반 강등 여부
+                    is_deformed = circularity < 0.7 or aspect_ratio < 0.6 or aspect_ratio > 1.6 or solidity < 0.85
+                    seg_shapes[(x1, y1, x2, y2)] = is_deformed
+            del s
+
+            def is_shape_deformed(bx1, by1, bx2, by2):
+                best_iou = 0
+                best_deformed = False
+                for (sx1, sy1, sx2, sy2), deformed in seg_shapes.items():
+                    ix1, iy1 = max(bx1, sx1), max(by1, sy1)
+                    ix2, iy2 = min(bx2, sx2), min(by2, sy2)
+                    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+                    union = (bx2-bx1)*(by2-by1) + (sx2-sx1)*(sy2-sy1) - inter
+                    iou = inter / union if union > 0 else 0
+                    if iou > best_iou:
+                        best_iou = iou
+                        best_deformed = deformed
+                return best_deformed if best_iou > 0.3 else False
+
             if res.boxes.id is not None:
                 for box, track_id in zip(res.boxes, res.boxes.id):
                     tid = int(track_id)
@@ -91,12 +133,19 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                     conf = float(box.conf)
                     if cls == 'Discard' and conf < 0.85:
                         cls = 'Ugly'
+                    # 형태 분석으로 강등
+                    bx1, by1, bx2, by2 = [int(v) for v in box.xyxy[0].tolist()]
+                    if cls == 'Premium' and is_shape_deformed(bx1, by1, bx2, by2):
+                        cls = 'Ugly'
                     inspector_total[cls] = inspector_total.get(cls, 0) + 1
             else:
                 for box in res.boxes:
                     cls = res.names[int(box.cls)]
                     conf = float(box.conf)
                     if cls == 'Discard' and conf < 0.85:
+                        cls = 'Ugly'
+                    bx1, by1, bx2, by2 = [int(v) for v in box.xyxy[0].tolist()]
+                    if cls == 'Premium' and is_shape_deformed(bx1, by1, bx2, by2):
                         cls = 'Ugly'
                     inspector_total[cls] = inspector_total.get(cls, 0) + 1
             del res
@@ -250,15 +299,63 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 # A. 상품감별(inspector) 모드 시각화
                 if shot_type == 'inspector':
                     res = inspector_model(frame, conf=0.4, verbose=False, device=device)[0]
+
+                    # seg 형태 분석
+                    s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
+                    seg_shapes = {}
+                    if s.masks is not None:
+                        for sbox, mask in zip(s.boxes, s.masks):
+                            sx1, sy1, sx2, sy2 = [int(v) for v in sbox.xyxy[0].tolist()]
+                            mask_np = (mask.data[0].cpu().numpy() * 255).astype(np.uint8)
+                            contours, _ = cv2.findContours(mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                            if not contours:
+                                continue
+                            cnt = max(contours, key=cv2.contourArea)
+                            area = cv2.contourArea(cnt)
+                            if area < 100:
+                                continue
+                            perimeter = cv2.arcLength(cnt, True)
+                            circularity = (4 * np.pi * area / (perimeter ** 2)) if perimeter > 0 else 1.0
+                            w = sx2 - sx1
+                            h = sy2 - sy1
+                            aspect_ratio = w / h if h > 0 else 1.0
+                            hull = cv2.convexHull(cnt)
+                            hull_area = cv2.contourArea(hull)
+                            solidity = area / hull_area if hull_area > 0 else 1.0
+                            is_deformed = circularity < 0.7 or aspect_ratio < 0.6 or aspect_ratio > 1.6 or solidity < 0.85
+                            seg_shapes[(sx1, sy1, sx2, sy2)] = (is_deformed, round(circularity, 2), round(solidity, 2))
+                    del s
+
                     for box in res.boxes:
                         cls = res.names[int(box.cls)]
                         conf = float(box.conf)
                         if cls == 'Discard' and conf < 0.85:
                             cls = 'Ugly'
                         x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
+
+                        # 형태 분석 매칭
+                        best_iou, best_info = 0, None
+                        for (sx1, sy1, sx2, sy2), info in seg_shapes.items():
+                            ix1, iy1 = max(x1, sx1), max(y1, sy1)
+                            ix2, iy2 = min(x2, sx2), min(y2, sy2)
+                            inter = max(0, ix2-ix1) * max(0, iy2-iy1)
+                            union = (x2-x1)*(y2-y1) + (sx2-sx1)*(sy2-sy1) - inter
+                            iou = inter / union if union > 0 else 0
+                            if iou > best_iou:
+                                best_iou = iou
+                                best_info = info
+
+                        if best_iou > 0.3 and best_info:
+                            is_deformed, circ, solid = best_info
+                            if cls == 'Premium' and is_deformed:
+                                cls = 'Ugly'
+
                         color = INSPECTOR_COLOR.get(cls, (200, 200, 200))
                         cv2.rectangle(overlay, (x1, y1), (x2, y2), color, 2)
-                        draw_text_bg(overlay, f"{cls} {float(box.conf):.2f}", (x1, y1 - 5), 0.4, color)
+                        label = f"{cls} {conf:.2f}"
+                        if best_iou > 0.3 and best_info:
+                            label += f" c:{circ}"
+                        draw_text_bg(overlay, label, (x1, y1 - 5), 0.4, color)
                     del res
 
                 # B. 생산추적(wide, zoom) 품질 시각화
