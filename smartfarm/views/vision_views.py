@@ -8,6 +8,7 @@ import os
 import threading
 import torch
 import traceback
+import subprocess
 
 bp = Blueprint('vision', __name__, url_prefix='/vision')
 
@@ -18,6 +19,42 @@ _quality_model = None
 _seg_model = None
 _inspector_model = None
 _model_lock = threading.Lock()
+
+
+def compress_video(video_bytes):
+    """FFmpeg로 영상 640p 압축"""
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp_in:
+            tmp_in.write(video_bytes)
+            tmp_in_path = tmp_in.name
+
+        tmp_out_path = tmp_in_path.replace('.mp4', '_compressed.mp4')
+
+        result = subprocess.run([
+            'ffmpeg', '-i', tmp_in_path,
+            '-vf', 'scale=640:-2',
+            '-b:v', '1000k',
+            '-c:v', 'libx264',
+            '-preset', 'fast',
+            '-y', tmp_out_path
+        ], capture_output=True, timeout=60)
+
+        if result.returncode == 0 and os.path.exists(tmp_out_path):
+            with open(tmp_out_path, 'rb') as f:
+                compressed = f.read()
+            print(f"[COMPRESS] {len(video_bytes)//1024}KB → {len(compressed)//1024}KB")
+            return compressed
+        else:
+            print(f"[COMPRESS] 실패, 원본 사용")
+            return video_bytes
+    except Exception as e:
+        print(f"[COMPRESS] 오류: {e}, 원본 사용")
+        return video_bytes
+    finally:
+        if os.path.exists(tmp_in_path):
+            os.unlink(tmp_in_path)
+        if os.path.exists(tmp_out_path):
+            os.unlink(tmp_out_path)
 
 
 def get_models():
@@ -516,6 +553,11 @@ def analyze(cult_id):
         file = request.files['image']
         image_or_video = file.read()
         is_image = file.content_type.startswith('image/')
+
+        # 영상이면 FFmpeg로 압축
+        if not is_image:
+            image_or_video = compress_video(image_or_video)
+
         vision_results = _run_vision(image_or_video, shot_type, is_image=is_image)
 
         from sqlalchemy import text
