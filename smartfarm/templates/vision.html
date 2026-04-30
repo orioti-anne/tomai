@@ -387,7 +387,7 @@ function renderResult(data) {
     }
 
     // 인사이트 생성
-    const insightText = generateInsight(quality, disease, segment, shotType);
+    const insightText = generateInsight(quality, disease, segment, shotType, inspector);
     document.getElementById('insightSection').classList.remove('hidden');
     document.getElementById('insightText').innerHTML = insightText.replace(/\n/g, '<br>');
 
@@ -602,7 +602,7 @@ async function deleteSession(sessionId) {
 }
 
 // ── AI 인사이트 ──
-function generateInsight(quality, disease, segment, shotType) {
+function generateInsight(quality, disease, segment, shotType, inspector) {
     const findR = (e) => { const f = quality.find(q => getEng('quality', q.class_name) === e); return f ? f.ratio : 0; };
     const ripe = findR('ripe'), halfRipe = findR('half_ripe'), unripe = findR('unripe');
 
@@ -627,7 +627,40 @@ function generateInsight(quality, disease, segment, shotType) {
     }
 
     if (shotType === 'inspector') {
-        return '출하 선별 분석이 완료되었습니다.';
+        inspector = inspector || [];
+        const total = inspector.reduce((s, i) => s + i.count, 0) || 1;
+        const findI = (cls) => { const f = inspector.find(i => i.class_name === cls); return f ? f.count : 0; };
+        const premium = findI('Premium');
+        const ugly = findI('Ugly');
+        const discard = findI('Discard');
+        const unripeI = findI('unripe');
+        const premiumRatio = (premium / total * 100).toFixed(1);
+        const uglyRatio = (ugly / total * 100).toFixed(1);
+        const discardRatio = (discard / total * 100).toFixed(1);
+        const shipRatio = ((premium + ugly) / total * 100).toFixed(1);
+
+        let parts = [];
+
+        if (premium / total >= 0.7) {
+            parts.push(`🟢 우수한 출하 품질 — 프리미엄 과실이 ${premiumRatio}%로 높은 비율을 차지합니다.`);
+        } else if (premium / total >= 0.4) {
+            parts.push(`🟡 양호한 출하 품질 — 프리미엄 ${premiumRatio}%, 일반 ${uglyRatio}%로 혼합 출하가 가능합니다.`);
+        } else {
+            parts.push(`🔴 출하 품질 주의 — 프리미엄 과실 비율이 ${premiumRatio}%로 낮습니다.`);
+        }
+
+        parts.push(`📐 형태 분석 적용 — 원형도·종횡비·볼록도 기준으로 외관 비정형 과실을 추가 선별하였습니다.`);
+
+        if (discard > 0) {
+            parts.push(`⚠️ 폐기 과실 ${discardRatio}% 감지 — 해당 과실은 출하에서 제외하세요.`);
+        }
+        if (unripeI > 0) {
+            const unripeRatio = (unripeI / total * 100).toFixed(1);
+            parts.push(`🍅 미숙과 ${unripeRatio}% 감지 — 추가 숙성 후 재선별을 권장합니다.`);
+        }
+
+        parts.push(`📦 출하 가능 과실: ${shipRatio}% (프리미엄 ${premiumRatio}% + 일반 ${uglyRatio}%)`);
+        return parts.join('\n');
     }
 
     const redSeg = segment.find(s => getEng('seg', s.class_name) === 'tom_fruit_red_poly');
