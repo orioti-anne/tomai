@@ -275,10 +275,10 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 'brown_rugose': (30, 60, 120),
             }
             INSPECTOR_COLOR = {
-                'Premium': (0, 255, 0),  # 녹색
-                'Ugly': (0, 165, 255),  # 주황색
-                'Discard': (0, 0, 255),  # 빨간색
-                'unripe': (255, 255, 0),  # 하늘색
+                'Premium': (0, 255, 0),
+                'Ugly': (0, 165, 255),
+                'Discard': (0, 0, 255),
+                'unripe': (255, 255, 0),
             }
 
             def draw_text_bg(img, text, pos, scale, color):
@@ -359,7 +359,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
 
                 # B. 생산추적(wide, zoom) 품질 시각화
                 if shot_type in ('wide', 'zoom'):
-                    q = quality_model(frame, conf=0.5, verbose=False, device=device)[0]
+                    q = quality_model.track(frame, conf=0.5, persist=True, verbose=False, device=device)[0]
                     for box in q.boxes:
                         cls = q.names[int(box.cls)]
                         x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
@@ -371,7 +371,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 # C. 근접 zoom 전용 (질병 + 세그멘테이션)
                 if shot_type == 'zoom':
                     # 질병 시각화
-                    d = disease_model(frame, conf=0.5, verbose=False, device=device)[0]
+                    d = disease_model.track(frame, conf=0.5, persist=True, verbose=False, device=device)[0]
                     for box in d.boxes:
                         cls = d.names[int(box.cls)]
                         if cls == 'Healthy': continue
@@ -381,7 +381,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                     del d
 
                     # 세그멘테이션 및 성장도 시각화
-                    s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
+                    s = seg_model.track(frame, conf=0.3, persist=True, verbose=False, device=device)[0]
                     if s.masks is not None:
                         seg_areas = {k: [] for k in SEG_COLOR}
                         for box, mask in zip(s.boxes, s.masks):
