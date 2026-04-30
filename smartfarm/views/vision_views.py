@@ -42,7 +42,6 @@ def _run_vision(image_or_video, shot_type, is_image=False):
     disease_model, quality_model, seg_model, inspector_model = get_models()
 
     if is_image:
-        import numpy as np
         nparr = np.frombuffer(image_or_video, np.uint8)
         frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         frames = [frame]
@@ -298,7 +297,7 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
 
                 # A. 상품감별(inspector) 모드 시각화
                 if shot_type == 'inspector':
-                    res = inspector_model(frame, conf=0.4, verbose=False, device=device)[0]
+                    res = inspector_model.track(frame, conf=0.4, persist=True, verbose=False, device=device)[0]
 
                     # seg 형태 분석
                     s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
