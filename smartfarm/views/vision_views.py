@@ -116,8 +116,10 @@ def _run_vision(image_or_video, shot_type, is_image=False):
     for frame in frames:
         # 1. 출하 선별 모드
         if shot_type == 'inspector':
-            res = inspector_model.track(frame, conf=0.4, persist=True, verbose=False, device=device)[0]
-
+            if is_image:
+                res = inspector_model(frame, conf=0.4, verbose=False, device=device)[0]
+            else:
+                res = inspector_model.track(frame, conf=0.4, persist=True, verbose=False, device=device)[0]
             # seg 모델로 형태 분석 (circularity, aspect_ratio, solidity)
             seg_shapes = {}
             s = seg_model(frame, conf=0.3, verbose=False, device=device)[0]
