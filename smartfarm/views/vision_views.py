@@ -88,8 +88,8 @@ def _run_vision(image_or_video, shot_type, is_image=False):
             if s.masks is not None:
                 for box, mask in zip(s.boxes, s.masks):
                     x1, y1, x2, y2 = [int(v) for v in box.xyxy[0].tolist()]
-                    mask_np = (mask.data[0].cpu().numpy() * 255).astype(np.uint8)
-                    contours, _ = cv2.findContours(mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                    mask_arr = (mask.data[0].cpu().numpy() * 255).astype(np.uint8)
+                    contours, _ = cv2.findContours(mask_arr, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                     if not contours:
                         continue
                     cnt = max(contours, key=cv2.contourArea)
@@ -306,8 +306,8 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                     if s.masks is not None:
                         for sbox, mask in zip(s.boxes, s.masks):
                             sx1, sy1, sx2, sy2 = [int(v) for v in sbox.xyxy[0].tolist()]
-                            mask_np = (mask.data[0].cpu().numpy() * 255).astype(np.uint8)
-                            contours, _ = cv2.findContours(mask_np, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                            mask_arr = (mask.data[0].cpu().numpy() * 255).astype(np.uint8)
+                            contours, _ = cv2.findContours(mask_arr, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
                             if not contours:
                                 continue
                             cnt = max(contours, key=cv2.contourArea)
