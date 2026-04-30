@@ -644,7 +644,7 @@ function generateInsight(quality, disease, segment, shotType, inspector) {
         if (premium / total >= 0.7) {
             parts.push(`🟢 우수한 출하 품질 — 프리미엄 과실이 ${premiumRatio}%로 높은 비율을 차지합니다.`);
         } else if (premium / total >= 0.4) {
-            parts.push(`🟡 양호한 출하 품질 — 프리미엄 ${premiumRatio}%, 일반 ${uglyRatio}%로 혼합 출하가 가능합니다.`);
+            parts.push(`🟡 양호한 출하 품질 — 프리미엄 ${premiumRatio}%, 못난이 ${uglyRatio}%로 혼합 출하가 가능합니다.`);
         } else {
             parts.push(`🔴 출하 품질 주의 — 프리미엄 과실 비율이 ${premiumRatio}%로 낮습니다.`);
         }
@@ -659,7 +659,7 @@ function generateInsight(quality, disease, segment, shotType, inspector) {
             parts.push(`🍅 미숙과 ${unripeRatio}% 감지 — 추가 숙성 후 재선별을 권장합니다.`);
         }
 
-        parts.push(`📦 출하 가능 과실: ${shipRatio}% (프리미엄 ${premiumRatio}% + 일반 ${uglyRatio}%)`);
+        parts.push(`📦 출하 가능 과실: ${shipRatio}% (프리미엄 ${premiumRatio}% + 못난이 ${uglyRatio}%)`);
         return parts.join('\n');
     }
 
