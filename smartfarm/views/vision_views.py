@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, g, redirect, url_for, request, jsonify, current_app
 from smartfarm.models import Cultivations, Farms
 from smartfarm import db
+from sqlalchemy import text
 import cv2
 import numpy as np
 import tempfile
@@ -9,6 +10,7 @@ import threading
 import torch
 import traceback
 import subprocess
+import gc
 
 bp = Blueprint('vision', __name__, url_prefix='/vision')
 
@@ -169,8 +171,8 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                     tracked_ids_inspector.add(tid)
                     cls = res.names[int(box.cls)]
                     conf = float(box.conf)
-                    if cls == 'Discard' and conf < 0.85:
-                        cls = 'Ugly'
+                    # if cls == 'Discard' and conf < 0.85:
+                    #     cls = 'Ugly'
                     # 형태 분석으로 강등
                     bx1, by1, bx2, by2 = [int(v) for v in box.xyxy[0].tolist()]
                     if cls == 'Premium' and is_shape_deformed(bx1, by1, bx2, by2):
@@ -180,8 +182,8 @@ def _run_vision(image_or_video, shot_type, is_image=False):
                 for box in res.boxes:
                     cls = res.names[int(box.cls)]
                     conf = float(box.conf)
-                    if cls == 'Discard' and conf < 0.85:
-                        cls = 'Ugly'
+                    # if cls == 'Discard' and conf < 0.85:
+                    #     cls = 'Ugly'
                     bx1, by1, bx2, by2 = [int(v) for v in box.xyxy[0].tolist()]
                     if cls == 'Premium' and is_shape_deformed(bx1, by1, bx2, by2):
                         cls = 'Ugly'
@@ -279,8 +281,6 @@ def _run_vision(image_or_video, shot_type, is_image=False):
     results['analyzed_frames'] = analyzed
     results['total_frames'] = total_frames
 
-    import gc
-    import torch
     gc.collect()
     if torch.backends.mps.is_available():
         torch.mps.empty_cache()
@@ -494,7 +494,6 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                 os.unlink(tmp_path)
 
             # DB 상태 업데이트
-            from sqlalchemy import text
             with db.engine.begin() as conn:
                 conn.execute(text("""
                     UPDATE vision_session
@@ -502,14 +501,12 @@ def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path,
                     WHERE session_id=:sid
                 """), {'path': output_path, 'sid': session_id})
 
-            import gc
             gc.collect()
             if torch.backends.mps.is_available():
                 torch.mps.empty_cache()
 
         except Exception as e:
             traceback.print_exc()
-            from sqlalchemy import text
             with db.engine.begin() as conn:
                 conn.execute(text("""
                     UPDATE vision_session SET video_status='error' WHERE session_id=:sid
@@ -562,7 +559,6 @@ def analyze(cult_id):
 
         vision_results = _run_vision(image_or_video, shot_type, is_image=is_image)
 
-        from sqlalchemy import text
         with db.engine.begin() as conn:
             row = conn.execute(text("""
                 INSERT INTO vision_session (cult_id, shot_type, total_frames, image_path, zone_name)
@@ -624,7 +620,6 @@ def analyze(cult_id):
         }), 200
 
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
@@ -632,7 +627,6 @@ def analyze(cult_id):
 @bp.route('/video-status/<int:session_id>')
 def video_status(session_id):
     try:
-        from sqlalchemy import text
         with db.engine.connect() as conn:
             row = conn.execute(text("""
                 SELECT video_status, video_path FROM vision_session WHERE session_id=:sid
@@ -660,7 +654,6 @@ def video_status(session_id):
 @bp.route('/zones/<int:cult_id>')
 def zones(cult_id):
     try:
-        from sqlalchemy import text
         with db.engine.connect() as conn:
             result = conn.execute(text("""
                 SELECT DISTINCT zone_name FROM vision_session
@@ -676,7 +669,6 @@ def zones(cult_id):
 @bp.route('/history/<int:cult_id>')
 def history(cult_id):
     try:
-        from sqlalchemy import text
         with db.engine.connect() as conn:
             sessions = conn.execute(text("""
                 SELECT s.session_id, s.shot_type, s.analyzed_at, s.zone_name, s.video_path,
@@ -721,7 +713,6 @@ def history(cult_id):
         return jsonify({'cult_id': cult_id, 'history': history}), 200
 
     except Exception as e:
-        import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
@@ -729,7 +720,6 @@ def history(cult_id):
 @bp.route('/session/<int:session_id>', methods=['DELETE'])
 def delete_session(session_id):
     try:
-        from sqlalchemy import text
         with db.engine.begin() as conn:
             # 영상 파일 삭제
             row = conn.execute(text("""
