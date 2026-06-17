@@ -30,3 +30,9 @@ runs/
 *.mp4
 *.zip
 *.pt
+# ML model artifacts (대용량 모델 파일 — README 참고하여 별도 학습/생성)
+*.joblib
+*.mlpackage
+*.safetensors
+smartfarm/static/vision_output/*.mp4
+smartfarm/static/vision_output/*.jpg
