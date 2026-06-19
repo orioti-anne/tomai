@@ -55,3 +55,12 @@ Dockerfile.api
 run_web.py
 convert_mac.py
 smartfarm/dl/services/
+
+# 죽은 코드 (어떤 view/service에서도 import 안 됨) — 로컬엔 유지, GitHub에서만 제외
+smartfarm/ml/predictors/
+smartfarm/ml/pipelines/
+smartfarm/ml/features/
+smartfarm/ml/model_registry.py
+smartfarm/ml/services/predict_tomato_price.py
+smartfarm/ml/services/environment_recommendation_service.py
+smartfarm/services/test_predic.py
