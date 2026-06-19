@@ -54,3 +54,4 @@ docs/tomai_requirements.xlsx
 Dockerfile.api
 run_web.py
 convert_mac.py
+smartfarm/dl/services/
