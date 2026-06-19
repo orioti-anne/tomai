@@ -1,2 +1,0 @@
-FLASK_APP=smartfarm
-FLASK_DEBUG=1
