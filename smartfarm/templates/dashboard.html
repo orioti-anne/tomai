@@ -150,7 +150,7 @@
                 </div>
                 <div class="mt-4 text-xs font-bold text-slate-500">
                     {% if total_days is not none %}
-                        정식 후 {{ total_days }}일차 출하 권장
+                        정식 후 {{ total_days }}일 재배 종료 권장
                     {% else %}
                         수확일 계산 정보 없음
                     {% endif %}
@@ -170,7 +170,7 @@
                 </div>
                 <div class="mt-4 text-xs font-bold text-slate-500">
                      {% if total_days is not none %}
-                        정식일 기준 {{ total_days }}일차 예상 가격
+                        정식 후 {{ total_days }}일차 예상 가격
                     {% else %}
                         수확일 계산 정보 없음
                     {% endif %}
@@ -224,14 +224,12 @@
         <!-- 1. 예측 판매단가 -->
         <div class="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
             <div class="flex items-center justify-between mb-6 gap-3">
-                <h3 class="text-lg font-bold text-slate-800">수확기간 예상 출하가격 추이</h3>
+                <h3 class="text-lg font-bold text-slate-800">재배기간 별 예상 출하단가</h3>
+                {% if prediction and prediction.comparison_data %}
                 <span class="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">
-                    {% if prediction and prediction.price_date_95 and prediction.price_date_105 and prediction.price_date_115 %}
-                        {{ prediction.price_date_95.strftime('%m.%d') }} ~ {{ prediction.price_date_115.strftime('%m.%d') }}
-                    {% else %}
-                        날짜 없음
-                    {% endif %}
+                    {{ prediction.comparison_data[0]["date_full"] }} ~ {{ prediction.comparison_data[-1]["date_full"] }}
                 </span>
+                {% endif %}
             </div>
 
             <div class="h-[200px]">
@@ -242,59 +240,33 @@
                 <div class="w-3 h-3 rounded bg-green-500"></div>
                 <span>예상 출하단가</span>
             </div>
-
             <div class="flex items-center gap-1">
                 <div class="w-4 border-t-2 border-dashed border-slate-400"></div>
-                    {% if prediction.latest_market_price %}
-                    <p class="text-xs text-slate-500">
-                        <span>{{ prediction.price_date.strftime('%m.%d') if prediction.price_date else '-' }} 기준 도매가</span>
-                    </p>
-                    {% endif %}
+                {% if prediction and prediction.latest_market_price %}
+                <p class="text-xs text-slate-500">
+                    <span>{{ prediction.price_date.strftime('%m.%d') if prediction.price_date else '-' }} 기준 도매가</span>
+                </p>
+                {% endif %}
             </div>
         </div>
 
             <div class="flex justify-center gap-2 mt-5">
-                {% set max_price = [
-                    prediction.price_day_95 or 0,
-                    prediction.price_day_105 or 0,
-                    prediction.price_day_115 or 0
-                ] | max %}
-
-                <div class="flex-none inline-flex items-center whitespace-nowrap px-4 py-2 rounded-xl border text-xs font-bold
-                    {% if (prediction.price_day_95 or 0) == max_price %}
-                        bg-emerald-50 border-emerald-200 text-emerald-700
-                    {% else %}
-                        bg-slate-50 border-slate-100 text-slate-700
-                    {% endif %}
-                ">
-                    <span>{{ prediction.price_date_95.strftime('%m.%d') if prediction and prediction.price_date_95 else '95일차' }}</span>
-                    <span class="mx-1">·</span>
-                    <span>{{ "{:,.0f}".format(prediction.price_day_95 or 0) }}원/kg</span>
-                </div>
-
-                <div class="flex-none inline-flex items-center whitespace-nowrap px-4 py-2 rounded-xl border text-xs font-bold
-                    {% if (prediction.price_day_105 or 0) == max_price %}
-                        bg-emerald-50 border-emerald-200 text-emerald-700
-                    {% else %}
-                        bg-slate-50 border-slate-100 text-slate-700
-                    {% endif %}
-                ">
-                    <span>{{ prediction.price_date_105.strftime('%m.%d') if prediction and prediction.price_date_105 else '105일차' }}</span>
-                    <span class="mx-1">·</span>
-                    <span>{{ "{:,.0f}".format(prediction.price_day_105 or 0) }}원/kg</span>
-                </div>
-
-                <div class="flex-none inline-flex items-center whitespace-nowrap px-4 py-2 rounded-xl border text-xs font-bold
-                    {% if (prediction.price_day_115 or 0) == max_price %}
-                        bg-emerald-50 border-emerald-200 text-emerald-700
-                    {% else %}
-                        bg-slate-50 border-slate-100 text-slate-700
-                    {% endif %}
-                ">
-                    <span>{{ prediction.price_date_115.strftime('%m.%d') if prediction and prediction.price_date_115 else '115일차' }}</span>
-                    <span class="mx-1">·</span>
-                    <span>{{ "{:,.0f}".format(prediction.price_day_115 or 0) }}원/kg</span>
-                </div>
+                {% if prediction and prediction.comparison_data %}
+                    {% set max_price = prediction.comparison_data | map(attribute='price') | list | max %}
+                    {% for item in prediction.comparison_data %}
+                    <div class="flex-none inline-flex items-center whitespace-nowrap px-4 py-2 rounded-xl border text-xs font-bold
+                        {% if item.price == max_price %}
+                            bg-emerald-50 border-emerald-200 text-emerald-700
+                        {% else %}
+                            bg-slate-50 border-slate-100 text-slate-700
+                        {% endif %}
+                    ">
+                        <span>{{ item.date }}</span>
+                        <span class="mx-1">·</span>
+                        <span>{{ "{:,.0f}".format(item.price) }}원/kg</span>
+                    </div>
+                    {% endfor %}
+                {% endif %}
             </div>
         </div>
 
@@ -623,14 +595,14 @@
             <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_260px] gap-5 items-start">
                 <div class="min-w-0">
                     <div class="relative h-[200px] md:h-[240px]">
-                        <canvas id="confidenceGauge" data-score="{{ 47 if is_fallback else 78 }}"></canvas>
+                        <canvas id="confidenceGauge" data-score="{{ confidence_score }}"></canvas>
 
                         <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                            <p class="text-sm font-semibold text-slate-400">생산량 예측 적합도</p>
+                            <p class="text-sm font-semibold text-slate-400">AI 분석 적합도</p>
 
                             <div class="flex items-end gap-1 mt-2">
-                                <span class="text-2xl md:text-5xl font-black {% if is_fallback %}text-amber-500{% else %}text-green-500{% endif %}">
-                                    {{ 47 if is_fallback else 78 }}
+                                <span class="text-2xl md:text-5xl font-black {% if confidence_score >= 70 %}text-green-500{% elif confidence_score >= 60 %}text-amber-500{% else %}text-amber-500{% endif %}">
+                                    {{ confidence_score }}
                                 </span>
                                 <span class="text-lg md:text-2xl font-extrabold text-slate-500 mb-1">%</span>
                             </div>
@@ -647,15 +619,15 @@
 
                         <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                             <span class="text-sm font-medium text-slate-600">생육 데이터</span>
-                            <span class="text-sm font-extrabold text-slate-800">
-                                {% if not latest_growth_list %}표준분석{% else %}정밀분석{% endif %}
+                            <span class="text-sm font-extrabold {% if not latest_growth_list %}text-amber-500{% elif grow_comp >= 0.9 %}text-green-600{% else %}text-slate-800{% endif %}">
+                                {% if not latest_growth_list %}표본부족{% elif grow_comp >= 0.9 %}표본충분{% else %}표본양호{% endif %}
                             </span>
                         </div>
 
                         <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                             <span class="text-sm font-medium text-slate-600">환경 데이터</span>
-                            <span class="text-sm font-extrabold {% if is_fallback %}text-amber-500{% else %}text-slate-800{% endif %}">
-                                {% if is_fallback %}표본부족{% else %}연동완료{% endif %}
+                            <span class="text-sm font-extrabold {% if not latest_env %}text-amber-500{% elif env_comp >= 0.9 %}text-green-600{% else %}text-slate-800{% endif %}">
+                                {% if not latest_env %}표본부족{% elif env_comp >= 0.9 %}표본충분{% else %}표본양호{% endif %}
                             </span>
                         </div>
 
@@ -682,21 +654,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const harvestPriceCtx = document.getElementById('harvestPriceChart');
 
     if (harvestPriceCtx && window.Chart) {
-        const label95 = "{{ prediction.price_date_95.strftime('%m/%d') if prediction and prediction.price_date_95 else '95일' }}";
-        const label105 = "{{ prediction.price_date_105.strftime('%m/%d') if prediction and prediction.price_date_105 else '105일' }}";
-        const label115 = "{{ prediction.price_date_115.strftime('%m/%d') if prediction and prediction.price_date_115 else '115일' }}";
-
-        const value95 = Number("{{ prediction.price_day_95 if prediction and prediction.price_day_95 is not none else 0 }}");
-        const value105 = Number("{{ prediction.price_day_105 if prediction and prediction.price_day_105 is not none else 0 }}");
-        const value115 = Number("{{ prediction.price_day_115 if prediction and prediction.price_day_115 is not none else 0 }}");
+        const comparisonData = {{ prediction.comparison_data | tojson if prediction and prediction.comparison_data else '[]' }};
+        const labels = comparisonData.map(d => d.date || (d.days + '일'));
+        const values = comparisonData.map(d => d.price || 0);
         const currentMarketPrice = Number("{{ prediction.latest_market_price if prediction and prediction.latest_market_price is not none else 0 }}");
 
-        const values = [value95, value105, value115];
-        const maxValue = Math.max(...values);
-
-        const barColors = values.map(value =>
-            value === maxValue ? '#22c55e' : '#bbf7d0'
-        );
+        const maxValue = values.length ? Math.max(...values) : 0;
+        const barColors = values.map(v => v === maxValue ? '#22c55e' : '#bbf7d0');
 
         const marketPriceLabelPlugin = {
             id: 'marketPriceLabelPlugin',
@@ -732,7 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
         new Chart(harvestPriceCtx, {
             type: 'bar',
             data: {
-                labels: [label95, label105, label115],
+                labels: labels,
                 datasets: [
                     {
                         type: 'bar',
@@ -797,7 +761,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gaugeCanvas = document.getElementById('confidenceGauge');
 
     if (gaugeCanvas && window.Chart) {
-        const gaugeScore = Number(gaugeCanvas.dataset.score || 78);
+        const gaugeScore = Number(gaugeCanvas.dataset.score || 0);
         const isFallback = gaugeScore < 70;
 
         new Chart(gaugeCanvas, {

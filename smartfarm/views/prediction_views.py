@@ -55,12 +55,7 @@ def recommend_environment_api():
 
 @bp.route("/run/<int:cult_id>")
 def run_ml_prediction_view(cult_id):
-    try:
-        result = run_ml_prediction(cult_id)
-        return render_template("prediction.html", result=result)
-    except Exception as e:
-        flash(f"예측 중 오류가 발생했습니다: {e}")
-        return render_template("prediction.html", result=None)
+    return redirect(url_for('prediction.prediction'))
 
 
 @bp.route('/run', methods=['POST'])
@@ -191,16 +186,16 @@ def run_prediction_api():
             )
 
             db.session.add(new_cult)
-            db.session.flush()
+            db.session.commit()
 
             cult_id = new_cult.cult_id
             planting_area = input_planting_area
 
-        import requests as req
-        MAC_API_URL = os.getenv("MAC_API_URL", "http://100.126.59.34:8000")
-        MAC_API_KEY = os.getenv("MAC_API_KEY", "tomai-internal-secret")
+        import requests as _req
+        MAC_API_URL = os.getenv("MAC_API_URL", "http://localhost:5001")
+        MAC_API_KEY = os.environ["MAC_API_KEY"]
         try:
-            mac_res = req.post(
+            mac_res = _req.post(
                 f"{MAC_API_URL}/api/prediction/run",
                 headers={"X-API-Key": MAC_API_KEY},
                 json={
@@ -216,14 +211,14 @@ def run_prediction_api():
                     "house_type": house_type,
                     "house_form": house_form
                 },
-                timeout=30
+                timeout=15
             )
             if mac_res.status_code == 200:
                 result = mac_res.json().get("result", {})
             else:
-                raise Exception(f"맥 미니 API 오류: {mac_res.status_code}")
+                raise Exception(f"API 오류: {mac_res.status_code}")
         except Exception as mac_e:
-            print(f"[PREDICTION] 맥 미니 API 실패, 로컬 fallback: {mac_e}")
+            print(f"[PREDICTION] API 실패, 로컬 fallback: {mac_e}")
             result = run_default_prediction(
                 cult_id=cult_id,
                 farm_id=farm_id,
@@ -268,6 +263,7 @@ def run_prediction_api():
             price_day_95=result.get('price_day_95'),
             price_day_105=result.get('price_day_105'),
             price_day_115=result.get('price_day_115'),
+            comparison_json=json.dumps(result.get('comparison_data', []), ensure_ascii=False),
             prediction_source = result.get('prediction_source'),
             prediction_confidence = result.get('prediction_confidence'),
             prediction_message = result.get('prediction_message'),

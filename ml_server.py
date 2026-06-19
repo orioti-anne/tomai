@@ -1,0 +1,269 @@
+"""
+ML 추론 전용 서버 (포트 5001)
+- DB/config 초기화만 (blueprint 없음)
+- X-API-Key 인증
+- 엔드포인트: /health, /api/prediction/run, /api/monitoring/<cult_id>, /api/growth/<cult_id>, /api/sync/run
+"""
+import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from smartfarm import create_app, db
+from smartfarm.models import Cultivations, Farms, EnvSummary, EnvCleaned
+from flask import jsonify, request
+from datetime import datetime
+from sqlalchemy import func
+from waitress import serve
+
+app = create_app(enable_scheduler=False, mode='ml')
+
+API_SECRET = os.environ["API_SECRET"]
+
+
+@app.before_request
+def check_api_key():
+    if request.path == "/health":
+        return
+    key = request.headers.get("X-API-Key")
+    if key != API_SECRET:
+        return jsonify({"error": "unauthorized"}), 401
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "ok", "server": "ml"})
+
+
+# ── 예측 실행 ─────────────────────────────────────────
+@app.route("/api/prediction/run", methods=["POST"])
+def api_prediction_run():
+    data = request.get_json()
+    try:
+        from smartfarm.services.prediction_service import run_default_prediction
+        result = run_default_prediction(
+            cult_id=data.get("cult_id"),
+            farm_id=data.get("farm_id"),
+            planting_date=data.get("planting_date"),
+            item=data.get("item"),
+            crop_cycle=data.get("crop_cycle"),
+            item_variety=data.get("item_variety"),
+            planting_area=data.get("planting_area"),
+            planting_density=data.get("planting_density"),
+            house_type=data.get("house_type"),
+            house_form=data.get("house_form")
+        )
+        return jsonify({"status": "success", "result": result}), 200
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+# ── 환경 모니터링 JSON ────────────────────────────────
+def _get_latest_daily(cult_id):
+    return EnvSummary.query.filter(EnvSummary.cult_id == cult_id)\
+        .order_by(EnvSummary.measure_date.desc()).first()
+
+def _get_prev_daily(cult_id, latest_date):
+    if not latest_date:
+        return None
+    return EnvSummary.query.filter(
+        EnvSummary.cult_id == cult_id,
+        EnvSummary.measure_date < latest_date
+    ).order_by(EnvSummary.measure_date.desc()).first()
+
+def _get_chart_rows(cult_id, days=7):
+    rows = EnvSummary.query.filter(EnvSummary.cult_id == cult_id)\
+        .order_by(EnvSummary.measure_date.desc()).limit(days).all()
+    return list(reversed(rows))
+
+def _get_hourly_base(cult_id):
+    return EnvCleaned.query.with_entities(func.max(EnvCleaned.measure_date))\
+        .filter(EnvCleaned.cult_id == cult_id).scalar()
+
+def _get_hourly_rows(cult_id, base_date):
+    if not base_date:
+        return []
+    all_rows = EnvCleaned.query.filter(
+        EnvCleaned.cult_id == cult_id,
+        EnvCleaned.measure_date == base_date
+    ).order_by(EnvCleaned.measure_time.asc(), EnvCleaned.envcl_id.asc()).all()
+    seen, result = set(), []
+    for r in all_rows:
+        h = r.measure_time.hour if r.measure_time else None
+        if h not in seen:
+            seen.add(h)
+            result.append(r)
+    return result
+
+def _change(curr, prev, unit="", percent=False):
+    if curr is None or prev is None:
+        return None
+    curr, prev = float(curr), float(prev)
+    diff = curr - prev
+    if percent:
+        if prev == 0:
+            return None
+        rate = (diff / prev) * 100
+        return {"direction": "up" if rate > 0 else "down" if rate < 0 else "same",
+                "value": abs(rate), "text": f"{abs(rate):.1f}% 어제 대비"}
+    return {"direction": "up" if diff > 0 else "down" if diff < 0 else "same",
+            "value": abs(diff), "text": f"{abs(diff):.1f}{unit} 어제 대비"}
+
+def _build_logs(latest_env, weather_alert=None, last_measured_at=None):
+    logs = []
+    if weather_alert:
+        logs.append({"level": "danger",
+                     "title": f"🚨 {weather_alert.get('title', '기상 특보 발령')}",
+                     "message": weather_alert.get('message', ''), "time_text": "실시간"})
+    if not latest_env:
+        return logs
+    date_text = latest_env.measure_date.strftime("%m/%d") if latest_env.measure_date else "-"
+    if latest_env.daily_in_temp is not None:
+        if latest_env.daily_in_temp >= 28:
+            logs.append({"level": "danger", "title": "🌡️ 고온 주의",
+                         "message": f"평균 온도가 {latest_env.daily_in_temp:.1f}°C로 높습니다.", "time_text": date_text})
+        elif latest_env.daily_in_temp <= 12:
+            logs.append({"level": "warning", "title": "❄️ 저온 주의",
+                         "message": f"야간 온도 하락에 대비하세요. (현재 {latest_env.daily_in_temp:.1f}°C)", "time_text": date_text})
+        else:
+            logs.append({"level": "success", "title": "온도 최적 상태",
+                         "message": f"실내 온도({latest_env.daily_in_temp:.1f}°C)가 생육에 적합한 범위 내에 있습니다.", "time_text": date_text})
+    if latest_env.daily_in_humidity is not None:
+        if 55 <= latest_env.daily_in_humidity <= 75:
+            logs.append({"level": "success", "title": "습도 적정",
+                         "message": f"실내 습도({latest_env.daily_in_humidity:.1f}%)가 안정적입니다.", "time_text": date_text})
+        else:
+            logs.append({"level": "warning", "title": "💧 습도 관리 필요",
+                         "message": "습도가 적정 범위를 벗어났습니다.", "time_text": date_text})
+    full_time = last_measured_at.strftime("%m/%d %H:%M") if last_measured_at else date_text
+    logs.append({"level": "info", "title": "시스템 알림",
+                 "message": "환경센서가 최신 데이터를 성공적으로 수집하였습니다.", "time_text": full_time})
+    return logs[:10]
+
+def _env_dict(e):
+    if not e:
+        return None
+    return {
+        "daily_in_temp":     float(e.daily_in_temp)     if e.daily_in_temp     is not None else None,
+        "daily_in_humidity": float(e.daily_in_humidity) if e.daily_in_humidity is not None else None,
+        "daily_in_co2":      float(e.daily_in_co2)      if e.daily_in_co2      is not None else None,
+        "daily_acc_solar":   float(e.daily_acc_solar)   if e.daily_acc_solar   is not None else None,
+        "measure_date": e.measure_date.strftime("%Y-%m-%d") if e.measure_date else None,
+    }
+
+
+@app.route("/api/monitoring/<int:cult_id>")
+def api_monitoring(cult_id):
+    try:
+        from smartfarm.services.weather_service import get_weather_alert_status
+
+        latest      = _get_latest_daily(cult_id)
+        previous    = _get_prev_daily(cult_id, latest.measure_date if latest else None)
+        base_date   = _get_hourly_base(cult_id)
+        hourly_rows = _get_hourly_rows(cult_id, base_date)
+        chart_rows  = _get_chart_rows(cult_id, days=7)
+
+        last_measured_at = None
+        if hourly_rows:
+            lr = hourly_rows[-1]
+            try:
+                m_time = lr.measure_time.time()
+            except AttributeError:
+                m_time = lr.measure_time
+            last_measured_at = datetime.combine(lr.measure_date, m_time)
+
+        cult    = db.session.get(Cultivations, cult_id)
+        alert   = None
+        if cult:
+            farm = db.session.get(Farms, cult.farm_id)
+            if farm:
+                alert = get_weather_alert_status(farm.region_l1, farm.region_l2)
+
+        logs = _build_logs(latest, weather_alert=alert, last_measured_at=last_measured_at)
+
+        return jsonify({
+            "latest_env":  _env_dict(latest),
+            "previous_env": _env_dict(previous),
+            "chart_labels": [r.measure_date.strftime("%m/%d") if r.measure_date else "" for r in chart_rows],
+            "chart_temp_data": [float(r.daily_in_temp) if r.daily_in_temp is not None else None for r in chart_rows],
+            "hourly_chart_labels": [r.measure_time.strftime("%H:%M") if r.measure_time else "" for r in hourly_rows],
+            "hourly_chart_temp_data": [float(r.in_temp) if r.in_temp is not None else None for r in hourly_rows],
+            "hourly_base_date": base_date.strftime("%Y-%m-%d") if base_date else None,
+            "logs": logs,
+            "temp_change":     _change(latest.daily_in_temp if latest else None,
+                                       previous.daily_in_temp if previous else None, unit="°C"),
+            "humidity_change": _change(latest.daily_in_humidity if latest else None,
+                                       previous.daily_in_humidity if previous else None, unit="%"),
+            "co2_change":      _change(latest.daily_in_co2 if latest else None,
+                                       previous.daily_in_co2 if previous else None, unit=" ppm"),
+            "solar_change":    _change(latest.daily_acc_solar if latest else None,
+                                       previous.daily_acc_solar if previous else None, percent=True),
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+# ── 생육 ML (초장 예측 + 환경 제안) ──────────────────
+@app.route("/api/growth/<int:cult_id>")
+def api_growth(cult_id):
+    try:
+        from smartfarm.views.growth_views import (
+            get_latest_environment, get_latest_growth_list,
+            get_recent_env_7d_avg, recommend_environment, build_height_forecast
+        )
+        cult               = db.session.get(Cultivations, cult_id)
+        latest_env         = get_latest_environment(cult_id)
+        latest_growth_list = get_latest_growth_list(cult_id)
+        latest_growth      = latest_growth_list[0] if latest_growth_list else None
+        env_avg_7d         = get_recent_env_7d_avg(cult_id)
+        recommended_env    = recommend_environment(cult, latest_growth, latest_env)
+
+        growth_forecasts = {}
+        for gr in latest_growth_list:
+            key = gr.plant_num if gr.plant_num is not None else 1
+            growth_forecasts[key] = build_height_forecast(cult, gr, env_avg_7d)
+
+        def growth_dict(gr):
+            if not gr:
+                return None
+            return {
+                "growth_id":   gr.growth_id,
+                "plant_num":   gr.plant_num,
+                "plant_height": float(gr.plant_height) if gr.plant_height is not None else None,
+                "leaf_count":  gr.leaf_count,
+                "inspect_date": gr.inspect_date.strftime("%Y-%m-%d") if gr.inspect_date else None,
+            }
+
+        return jsonify({
+            "recommended_env":    recommended_env,
+            "growth_forecasts":   growth_forecasts,
+            "latest_growth_list": [growth_dict(gr) for gr in latest_growth_list],
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+# ── 클라우드 동기화 트리거 ────────────────────────────
+@app.route("/api/sync/run")
+def run_sync():
+    try:
+        from smartfarm.services.cloud_sync_service import run_full_sync
+        run_full_sync(app)
+        return jsonify({"status": "success"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+if __name__ == "__main__":
+    print("[ML Server] 포트 5001 시작")
+    serve(app, host="0.0.0.0", port=5001, threads=8)

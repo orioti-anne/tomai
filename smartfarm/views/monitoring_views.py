@@ -85,10 +85,16 @@ def fetch_monitoring_data(cult_id):
     ))
 
     today = datetime.now().date()
-    hourly_rows = EnvCleaned.query.filter(
+    _all_hourly = EnvCleaned.query.filter(
         EnvCleaned.cult_id == cult_id,
         EnvCleaned.measure_date == today
-    ).order_by(EnvCleaned.measure_hour.asc()).all()
+    ).order_by(EnvCleaned.measure_hour.asc(), EnvCleaned.envcl_id.asc()).all()
+    seen_hours = set()
+    hourly_rows = []
+    for r in _all_hourly:
+        if r.measure_hour not in seen_hours:
+            seen_hours.add(r.measure_hour)
+            hourly_rows.append(r)
 
     def env_dict(e):
         if not e:

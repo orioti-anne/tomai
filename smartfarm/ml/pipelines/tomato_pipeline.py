@@ -225,7 +225,7 @@ def predict_tomato_cycle(cult_id: int) -> dict:
         "item": cultivation.get("item"),
         "item_variety": cultivation.get("item_variety"),
         "dap": dap,
-        "expected_harvest_date": target_date.date(),
+        "expected_harvest_date": target_date.date().isoformat(),
         "expected_quantity": round(expected_quantity, 2),
         "expected_price_per_kg": round(expected_price_per_kg, 0),
         "expected_sales": round(expected_sales, 0),

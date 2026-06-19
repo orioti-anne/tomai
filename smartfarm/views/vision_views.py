@@ -2,29 +2,59 @@ from flask import Blueprint, render_template, g, redirect, url_for, request, jso
 from smartfarm.models import Cultivations, Farms
 from smartfarm import db
 from sqlalchemy import text
-import cv2
-import numpy as np
 import tempfile
 import os
 import threading
-import torch
+import time
 import traceback
 import subprocess
 import gc
+import torch
+from io import BytesIO
 
 bp = Blueprint('vision', __name__, url_prefix='/vision')
 
-device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+_device = None
+
+def _get_device():
+    global _device
+    if _device is None:
+        import torch
+        _device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+    return _device
 
 _disease_model = None
 _quality_model = None
 _seg_model = None
 _inspector_model = None
 _model_lock = threading.Lock()
+_last_used = 0.0
+_watcher_started = False
+IDLE_TIMEOUT = 600
+
+
+def _idle_watcher():
+    global _disease_model, _quality_model, _seg_model, _inspector_model, _last_used
+    while True:
+        time.sleep(60)
+        with _model_lock:
+            if _disease_model is not None and time.time() - _last_used > IDLE_TIMEOUT:
+                import torch
+                _disease_model = None
+                _quality_model = None
+                _seg_model = None
+                _inspector_model = None
+                gc.collect()
+                if torch.backends.mps.is_available():
+                    torch.mps.empty_cache()
+                print("[Vision] 유휴 시간 초과 — YOLO 모델 언로드 완료")
 
 
 def compress_video(video_bytes):
     """FFmpeg로 영상 640p 압축"""
+    FFMPEG = '/opt/homebrew/bin/ffmpeg'
+    tmp_in_path = None
+    tmp_out_path = None
     try:
         with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp_in:
             tmp_in.write(video_bytes)
@@ -33,38 +63,68 @@ def compress_video(video_bytes):
         tmp_out_path = tmp_in_path.replace('.mp4', '_compressed.mp4')
 
         result = subprocess.run([
-            'ffmpeg', '-i', tmp_in_path,
+            FFMPEG, '-i', tmp_in_path,
             '-vf', 'scale=640:-2',
-            '-b:v', '1000k',
+            '-crf', '28',
             '-c:v', 'libx264',
             '-preset', 'fast',
+            '-movflags', '+faststart',
             '-y', tmp_out_path
         ], capture_output=True, timeout=60)
 
         if result.returncode == 0 and os.path.exists(tmp_out_path):
             with open(tmp_out_path, 'rb') as f:
                 compressed = f.read()
-            print(f"[COMPRESS] {len(video_bytes)//1024}KB → {len(compressed)//1024}KB")
+            print(f"[COMPRESS VID] {len(video_bytes)//1024}KB → {len(compressed)//1024}KB")
             return compressed
         else:
-            print(f"[COMPRESS] 실패, 원본 사용")
+            print(f"[COMPRESS VID] 실패, 원본 사용: {result.stderr.decode(errors='ignore')[:200]}")
             return video_bytes
     except Exception as e:
-        print(f"[COMPRESS] 오류: {e}, 원본 사용")
+        print(f"[COMPRESS VID] 오류: {e}, 원본 사용")
         return video_bytes
     finally:
-        if os.path.exists(tmp_in_path):
+        if tmp_in_path and os.path.exists(tmp_in_path):
             os.unlink(tmp_in_path)
-        if os.path.exists(tmp_out_path):
+        if tmp_out_path and os.path.exists(tmp_out_path):
             os.unlink(tmp_out_path)
 
 
+def compress_image(image_bytes, max_size=1280, quality=75):
+    """PIL로 이미지 max_size px 리사이즈 + JPEG 압축"""
+    from PIL import Image
+    try:
+        img = Image.open(BytesIO(image_bytes))
+        if img.mode in ('RGBA', 'P'):
+            img = img.convert('RGB')
+        w, h = img.size
+        if w > max_size or h > max_size:
+            ratio = min(max_size / w, max_size / h)
+            img = img.resize((int(w * ratio), int(h * ratio)), Image.LANCZOS)
+        buf = BytesIO()
+        img.save(buf, format='JPEG', quality=quality, optimize=True)
+        compressed = buf.getvalue()
+        print(f"[COMPRESS IMG] {len(image_bytes)//1024}KB → {len(compressed)//1024}KB")
+        return compressed
+    except Exception as e:
+        print(f"[COMPRESS IMG] 오류: {e}, 원본 사용")
+        return image_bytes
+
+
 def get_models():
-    global _disease_model, _quality_model, _seg_model, _inspector_model
+    global _disease_model, _quality_model, _seg_model, _inspector_model, _last_used, _watcher_started
+
+    _last_used = time.time()
 
     if _disease_model is None:
         with _model_lock:
             if _disease_model is None:  # double-check
+                if not _watcher_started:
+                    _watcher_started = True
+                    t = threading.Thread(target=_idle_watcher, daemon=True)
+                    t.start()
+                    print("[Vision] 유휴 감시 스레드 시작")
+
                 from ultralytics import YOLO
 
                 _DL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'dl', 'models')
@@ -78,6 +138,9 @@ def get_models():
 
 
 def _run_vision(image_or_video, shot_type, is_image=False):
+    import cv2
+    import numpy as np
+    device = _get_device()
     disease_model, quality_model, seg_model, inspector_model = get_models()
 
     if is_image:
@@ -290,6 +353,9 @@ def _run_vision(image_or_video, shot_type, is_image=False):
 def _generate_vision_video(app, session_id, video_bytes, shot_type, output_path, is_image=False):
     with app.app_context():
         try:
+            import cv2
+            import numpy as np
+            device = _get_device()
             disease_model, quality_model, seg_model, inspector_model = get_models()
 
             # 색상 및 라벨 설정
@@ -553,8 +619,10 @@ def analyze(cult_id):
         image_or_video = file.read()
         is_image = file.content_type.startswith('image/')
 
-        # 영상이면 FFmpeg로 압축
-        if not is_image:
+        # 업로드 직후 압축
+        if is_image:
+            image_or_video = compress_image(image_or_video)
+        else:
             image_or_video = compress_video(image_or_video)
 
         vision_results = _run_vision(image_or_video, shot_type, is_image=is_image)
@@ -738,4 +806,53 @@ def delete_session(session_id):
 
         return jsonify({'success': True}), 200
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@bp.route('/diagnose/<int:session_id>', methods=['POST'])
+def diagnose(session_id):
+    if not g.user:
+        return jsonify({"error": "로그인이 필요합니다"}), 401
+
+    import requests
+
+    try:
+        with db.engine.begin() as conn:
+            disease_rows = conn.execute(text("""
+                SELECT class_name, count, avg_conf FROM vision_disease WHERE session_id=:sid
+            """), {'sid': session_id}).fetchall()
+
+        if not disease_rows:
+            return jsonify({"error": "탐지된 병해가 없습니다"}), 400
+
+        # LLM GAP 대처법 생성 (YOLO 탐지결과를 자연스러운 한국어 도메인 질문 형태로 구성)
+        # GAP 표준재배지침서의 실제 병명과 일치시킴 (예: Early Blight는 "초기 역병"이 아니라
+        # 겹무늬병(Alternaria solani), Septoria는 지침서상 "점무늬병"으로 표기됨 — RAG 검색 정확도에 직결)
+        DISEASE_LABEL_KO = {
+            'Early Blight': '겹무늬병', 'Healthy': '정상', 'Late Blight': '잎마름역병',
+            'Leaf Miner': '굴파리', 'Leaf Mold': '잎곰팡이병', 'Mosaic Virus': '모자이크 바이러스',
+            'Septoria': '점무늬병', 'Spider Mites': '응애',
+            'Yellow Leaf Curl Virus': '황화잎말림 바이러스',
+        }
+        disease_lines = ", ".join(
+            f"{DISEASE_LABEL_KO.get(r.class_name, r.class_name)} {r.count}건(신뢰도 {r.avg_conf:.0%})"
+            for r in disease_rows
+        )
+        llm_prompt = (
+            f"토마토 잎에서 다음 병해 증상이 발견되었습니다: {disease_lines}. "
+            "각 증상에 대해 GAP 농업 지침에 따른 대처법을 알려주세요."
+        )
+        llm_res = requests.post(
+            'http://localhost:8003/chat',
+            json={'message': llm_prompt, 'history': []},
+            timeout=60
+        )
+        llm_res.raise_for_status()
+        advice = llm_res.json().get('reply', '')
+
+        return jsonify({"advice": advice}), 200
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": f"AI 서버 연결 실패: {e}"}), 503
+    except Exception as e:
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500

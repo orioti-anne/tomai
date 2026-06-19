@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  body { overflow: hidden !important; }
+  footer { display: none !important; }
+</style>
+
+<!-- 뷰포트 전체 배경 -->
+<div style="position:fixed; top:64px; left:0; right:0; bottom:0; background:#f8fafc; z-index:40;">
+
+  <!-- 네비바와 동일한 container 너비로 채팅 패널 제한 -->
+  <div class="container mx-auto" style="height:100%; display:flex; flex-direction:column; background:white; border-left:1px solid #e2e8f0; border-right:1px solid #e2e8f0;">
+
+    <!-- 채팅 상단 바 -->
+    <div style="background:white; border-bottom:1px solid #e2e8f0; padding:8px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0;">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <span style="width:8px; height:8px; background:#22c55e; border-radius:50%; display:inline-block; animation:pulse 2s infinite;"></span>
+        <span style="font-size:0.875rem; font-weight:700; color:#475569;">tomAI Chat</span>
+        <span style="font-size:0.75rem; color:#94a3b8;">Tomato Cultivation Fine-tuned LLM</span>
+      </div>
+      <a href="/" style="display:flex; align-items:center; gap:5px; font-size:0.8rem; font-weight:600; color:#94a3b8; border:1px solid #e2e8f0; padding:5px 12px; border-radius:8px; text-decoration:none; transition:all .15s;" onmouseover="this.style.color='#ef4444';this.style.borderColor='#fca5a5';" onmouseout="this.style.color='#94a3b8';this.style.borderColor='#e2e8f0';">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        채팅 종료
+      </a>
+    </div>
+
+    <!-- 메시지 영역 -->
+    <div id="messages" style="flex:1; overflow-y:auto; padding:20px 16px; display:flex; flex-direction:column; gap:12px; background:#f8fafc;">
+      <div style="display:flex; justify-content:flex-start;">
+        <div style="background:white; border-radius:16px 16px 16px 4px; padding:12px 16px; font-size:0.875rem; color:#334155; box-shadow:0 1px 4px rgba(0,0,0,0.07); max-width:75%; line-height:1.65;">
+          안녕하세요! tomAI입니다.<br>토마토 재배·병충해·GAP 인증 등 스마트팜 관련 궁금한 점을 질문해 주세요.
+        </div>
+      </div>
+    </div>
+
+    <!-- 입력 영역 -->
+    <div style="background:white; border-top:1px solid #e2e8f0; padding:12px 16px; display:flex; gap:10px; align-items:center; flex-shrink:0;">
+      <input id="chat-input" type="text" placeholder="무엇이든 질문하세요"
+        style="flex:1; background:#f8fafc; border:1px solid #e2e8f0; border-radius:24px; padding:10px 18px; font-size:0.875rem; outline:none; transition:border-color .15s;"
+        onfocus="this.style.borderColor='#22c55e'; this.style.background='white';"
+        onblur="this.style.borderColor='#e2e8f0'; this.style.background='#f8fafc';"
+        autocomplete="off" />
+      <button id="chat-send"
+        style="width:40px; height:40px; background:#16a34a; color:white; border:none; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .15s;"
+        onmouseover="this.style.background='#15803d';" onmouseout="this.style.background='#16a34a';">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+        </svg>
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<style>
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+@keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+</style>
+
+<script>
+const msgs  = document.getElementById('messages');
+const input = document.getElementById('chat-input');
+let sending = false;
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function mdToHtml(text) {
+  const lines = escHtml(text).split('\n');
+  const out = [];
+  let inList = false;
+  for (const line of lines) {
+    const bm = line.match(/^\* (.+)/);
+    if (bm) {
+      if (!inList) { out.push('<ul style="margin:6px 0 6px 16px;padding:0;list-style:disc;">'); inList = true; }
+      out.push('<li style="margin:2px 0;">' + bm[1].replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>') + '</li>');
+    } else {
+      if (inList) { out.push('</ul>'); inList = false; }
+      if (line.trim() === '') {
+        out.push('<br>');
+      } else {
+        out.push(line.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>') + '<br>');
+      }
+    }
+  }
+  if (inList) out.push('</ul>');
+  return out.join('').replace(/(<br>)+$/, '');
+}
+
+function addBubble(text, role) {
+  const isUser = role === 'user';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `display:flex; justify-content:${isUser ? 'flex-end' : 'flex-start'};`;
+  const bubble = document.createElement('div');
+  bubble.style.cssText = `
+    max-width:75%; padding:12px 16px; font-size:0.875rem; line-height:1.65; word-break:break-word;
+    background:${isUser ? '#16a34a' : 'white'};
+    color:${isUser ? 'white' : '#334155'};
+    border-radius:${isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px'};
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  `;
+  if (isUser) {
+    bubble.textContent = text;
+  } else {
+    bubble.innerHTML = mdToHtml(text);
+  }
+  wrap.appendChild(bubble);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+  return bubble;
+}
+
+function addTyping() {
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex; justify-content:flex-start;';
+  wrap.innerHTML = `<div style="background:white;border-radius:16px 16px 16px 4px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,0.07);display:flex;gap:5px;align-items:center;">
+    <span style="width:7px;height:7px;background:#94a3b8;border-radius:50%;animation:blink 1.2s infinite 0s;display:inline-block;"></span>
+    <span style="width:7px;height:7px;background:#94a3b8;border-radius:50%;animation:blink 1.2s infinite .2s;display:inline-block;"></span>
+    <span style="width:7px;height:7px;background:#94a3b8;border-radius:50%;animation:blink 1.2s infinite .4s;display:inline-block;"></span>
+  </div>`;
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+  return wrap;
+}
+
+async function doSend() {
+  const text = input.value.trim();
+  if (!text || sending) return;
+  sending = true;
+  input.value = '';
+  addBubble(text, 'user');
+  const typingEl = addTyping();
+  try {
+    const res = await fetch('/api/chat-pure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text }),
+    });
+    typingEl.remove();
+    const data = await res.json();
+    addBubble(data.reply || '응답을 처리할 수 없습니다.', 'assistant');
+  } catch {
+    typingEl.remove();
+    addBubble('⚠️ 서버에 연결할 수 없습니다.', 'assistant');
+  } finally {
+    sending = false;
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+}
+
+document.getElementById('chat-send').addEventListener('click', doSend);
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); doSend(); }
+});
+</script>
+{% endblock %}

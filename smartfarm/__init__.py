@@ -9,7 +9,11 @@ db = SQLAlchemy()
 migrate = Migrate()
 
 
-def create_app(enable_scheduler: bool = True):
+def create_app(enable_scheduler: bool = True, mode: str = 'web'):
+    """
+    mode='web' : 웹 서버 전체 blueprint 등록 (포트 5000)
+    mode='ml'  : DB/config 초기화만, blueprint 없음 (포트 5001 ML 서버용)
+    """
     app = Flask(__name__)
     app.config.from_object(config)
 
@@ -18,35 +22,38 @@ def create_app(enable_scheduler: bool = True):
 
     from . import models
 
-    from .views import (
-        main_views,
-        question_views,
-        answer_views,
-        auth_views,
-        farm_views,
-        prediction_views,
-        monitoring_views,
-        env_api_views,
-        growth_views,
-        env_control_views,
-        dashboard_views,
-        display_api,
-        vision_views
-    )
+    if mode == 'web':
+        from .views import (
+            chat_views,
+            main_views,
+            question_views,
+            answer_views,
+            auth_views,
+            farm_views,
+            prediction_views,
+            monitoring_views,
+            env_api_views,
+            growth_views,
+            env_control_views,
+            dashboard_views,
+            display_api,
+            vision_views
+        )
 
-    app.register_blueprint(main_views.bp)
-    app.register_blueprint(question_views.bp)
-    app.register_blueprint(answer_views.bp)
-    app.register_blueprint(auth_views.bp)
-    app.register_blueprint(farm_views.bp)
-    app.register_blueprint(prediction_views.bp)
-    app.register_blueprint(monitoring_views.bp)
-    app.register_blueprint(env_api_views.bp)
-    app.register_blueprint(growth_views.bp)
-    app.register_blueprint(env_control_views.bp)
-    app.register_blueprint(dashboard_views.bp)
-    app.register_blueprint(display_api.bp)
-    app.register_blueprint(vision_views.bp)
+        app.register_blueprint(main_views.bp)
+        app.register_blueprint(question_views.bp)
+        app.register_blueprint(answer_views.bp)
+        app.register_blueprint(auth_views.bp)
+        app.register_blueprint(farm_views.bp)
+        app.register_blueprint(prediction_views.bp)
+        app.register_blueprint(monitoring_views.bp)
+        app.register_blueprint(env_api_views.bp)
+        app.register_blueprint(growth_views.bp)
+        app.register_blueprint(env_control_views.bp)
+        app.register_blueprint(dashboard_views.bp)
+        app.register_blueprint(display_api.bp)
+        app.register_blueprint(vision_views.bp)
+        app.register_blueprint(chat_views.bp)
 
     if enable_scheduler:
         if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":

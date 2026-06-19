@@ -260,9 +260,10 @@ def run_weather_collect_job(app):
         )
 
         try:
+            from datetime import date as date_type
             merge_sql = text("""
                 INSERT INTO weather_index (w_date, avg_temp, sunshine, rain, humid)
-                VALUES (:w_date::date, :avg_temp, :sunshine, :rain, :humid)
+                VALUES (CAST(:w_date AS date), :avg_temp, :sunshine, :rain, :humid)
                 ON CONFLICT (w_date) DO UPDATE SET
                     avg_temp = EXCLUDED.avg_temp,
                     sunshine = EXCLUDED.sunshine,
@@ -343,6 +344,14 @@ def init_scheduler(app):
     print("[SCHEDULER] 통합 스케줄러가 시작되었습니다. (센서: 매시간, 시세/기상: 오전 1회)")
 
 def add_sync_job(scheduler, app):
+    import os
+    if os.getenv("GCP_SYNC_ENABLED", "true").lower() == "false":
+        print("[SCHEDULER] GCP 동기화 비활성화 (GCP_SYNC_ENABLED=false)")
+        return
+    sync_url = os.getenv("GCP_SYNC_URL", "")
+    if not sync_url:
+        print("[SCHEDULER] GCP_SYNC_URL 미설정 — 클라우드 동기화 건너뜀")
+        return
     from smartfarm.services.cloud_sync_service import run_full_sync
     scheduler.add_job(
         run_full_sync,

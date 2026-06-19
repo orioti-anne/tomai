@@ -10,7 +10,6 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import text
 from smartfarm import db
-from smartfarm.ml.pipelines.tomato_pipeline import predict_tomato_cycle
 from smartfarm.ml.services.environment_recommendation_service import recommend_environment
 
 
@@ -22,10 +21,7 @@ def send_to_gcp(category: str, value: float, target_date: str = None):
 
 
 def run_ml_prediction_with_push(cult_id: int):
-    result = predict_tomato_cycle(cult_id=cult_id)
-    # 계산된 결과를 GCP로 쏜다!
-    send_to_gcp("growth_rgr", result.get('expected_quantity'))
-    return result
+    return run_default_prediction(cult_id=cult_id)
 
 
 
@@ -47,15 +43,7 @@ def run_environment_recommendation(sensor_data: dict) -> dict:
 
 
 def run_ml_prediction(cult_id: int) -> Dict[str, Any]:
-    result = predict_tomato_cycle(cult_id=cult_id)
-
-    if result and 'expected_quantity' in result:
-        qty = result['expected_quantity']
-        target_date = result.get('expected_harvest_date', datetime.now().strftime('%Y-%m-%d'))
-
-        send_to_gcp("growth_prediction", qty, target_date)
-
-    return result
+    return run_default_prediction(cult_id=cult_id)
 
 def _to_float(value: Any, default: Optional[float] = None) -> Optional[float]:
     if value in (None, ""):
@@ -478,6 +466,321 @@ def _build_yield_feature_row(cult_id: int) -> tuple[Optional[pd.DataFrame], Opti
 
 
 # =========================================================
+# V3 생산량 feature 빌더 (환경 + 생육 + 재배 기본정보)
+# =========================================================
+def _build_v3_yield_feature_row(cult_id: int, snapshot_day: int) -> tuple[Optional[pd.DataFrame], Optional[str]]:
+    base = _get_base_cultivation_row(cult_id)
+    if not base:
+        return None, "재배 기본정보 없음"
+
+    planting_date = pd.to_datetime(base.get("planting_date"), errors="coerce")
+    if pd.isna(planting_date):
+        return None, "정식일 없음"
+
+    today = pd.Timestamp(date.today())
+    snapshot_date = planting_date + pd.Timedelta(days=snapshot_day)
+    if snapshot_date > today:
+        snapshot_date = today
+
+    env_slice    = _get_env_slice(cult_id, planting_date, snapshot_date)
+    growth_slice = _get_growth_slice(cult_id, snapshot_date)
+
+    env_days = len(env_slice)
+    if env_days < MIN_ENV_DAYS:
+        return None, f"환경데이터 부족 ({env_days}일)"
+
+    # 환경 집계
+    latest_env = env_slice.sort_values("measure_date").iloc[-1]
+    r7  = env_slice[env_slice["measure_date"] > snapshot_date - pd.Timedelta(days=7)]
+    r14 = env_slice[env_slice["measure_date"] > snapshot_date - pd.Timedelta(days=14)]
+
+    def safe_mean(s): return float(pd.to_numeric(s, errors="coerce").mean())
+
+    area       = _to_float(base.get("planting_area"))
+    total_area = _to_float(base.get("total_area"))
+
+    row = {
+        # 재배 기본
+        "snapshot_day":      snapshot_day,
+        "planting_area":     area,
+        "planting_density":  _to_float(base.get("planting_density")),
+        "crop_cycle":        _to_float(base.get("crop_cycle")),
+        "survey_year":       _to_float(base.get("survey_year")),
+        "area_ratio":        area / total_area if area and total_area and total_area > 0 else np.nan,
+        "planting_month":    planting_date.month,
+        # 환경
+        "env_days":          env_days,
+        "acc_temp":          _to_float(latest_env.get("acc_temp")),
+        "acc_solar":         _to_float(latest_env.get("acc_solar")),
+        "avg_in_temp":       safe_mean(env_slice["daily_in_temp"]),
+        "avg_in_humidity":   safe_mean(env_slice["daily_in_humidity"]),
+        "avg_in_co2":        safe_mean(env_slice["daily_in_co2"]),
+        "avg_acc_solar":     safe_mean(env_slice["daily_acc_solar"]),
+        "rain_days":         float(pd.to_numeric(env_slice["daily_rain_detection"], errors="coerce").fillna(0).sum()),
+        "r7_in_temp":        safe_mean(r7["daily_in_temp"])  if len(r7) > 0 else np.nan,
+        "r7_solar":          safe_mean(r7["daily_acc_solar"]) if len(r7) > 0 else np.nan,
+        "r14_in_temp":       safe_mean(r14["daily_in_temp"]) if len(r14) > 0 else np.nan,
+        "r14_solar":         safe_mean(r14["daily_acc_solar"]) if len(r14) > 0 else np.nan,
+        # 카테고리
+        "house_type":        base.get("house_type"),
+        "house_form":        base.get("house_form"),
+        "region_l1":         base.get("region_l1"),
+        "region_l2":         base.get("region_l2"),
+        "planting_season":   _season_from_month(planting_date.month),
+    }
+
+    # 생육 집계 (inspect_date별 plant 평균 → 최신 inspect_date)
+    has_growth = 0
+    gf = {
+        "has_growth": 0,
+        "plant_height": np.nan, "growth_length": np.nan, "leaf_count": np.nan,
+        "cluster_num": np.nan, "fruits_per_cluster": np.nan, "branch_width": np.nan,
+        "plant_height_diff": np.nan, "growth_length_diff": np.nan,
+        "cluster_num_diff": np.nan, "fruits_per_cluster_diff": np.nan,
+        "grow_obs_days": np.nan,
+    }
+    if not growth_slice.empty:
+        # plant_num별 평균 → inspect_date별 1행
+        grow_cols = ["plant_height", "growth_length", "leaf_count",
+                     "cluster_num", "fruits_per_cluster", "branch_width"]
+        agg = growth_slice.groupby("inspect_date")[grow_cols].mean().reset_index()
+        agg = agg.sort_values("inspect_date")
+
+        latest_g = agg.iloc[-1]
+        gf["has_growth"] = 1
+        for c in grow_cols:
+            gf[c] = float(latest_g[c]) if pd.notna(latest_g[c]) else np.nan
+        gf["grow_obs_days"] = float((agg["inspect_date"].iloc[-1] - agg["inspect_date"].iloc[0]).days) if len(agg) > 1 else 0.0
+
+        if len(agg) >= 2:
+            prev_g = agg.iloc[-2]
+            def diff(col): return float(latest_g[col] - prev_g[col]) if pd.notna(latest_g[col]) and pd.notna(prev_g[col]) else np.nan
+            gf["plant_height_diff"]       = diff("plant_height")
+            gf["growth_length_diff"]      = diff("growth_length")
+            gf["cluster_num_diff"]        = diff("cluster_num")
+            gf["fruits_per_cluster_diff"] = diff("fruits_per_cluster")
+
+    row.update(gf)
+    return pd.DataFrame([row]), None
+
+
+def _get_expected_cult_duration(crop_cycle: Optional[float], fallback: float = 284.0, min_samples: int = 5) -> float:
+    """
+    동일 crop_cycle 의 완료 재배 평균 기간을 반환.
+    샘플 수 부족 시: 바로 아래 작기(crop_cycle - 1)부터 내려가며 탐색.
+    모두 부족하면 fallback(학습 중앙값) 사용.
+    """
+    if crop_cycle is None:
+        return fallback
+    try:
+        cc = int(crop_cycle)
+        # 요청 작기부터 1까지 내려가며 n >= min_samples인 첫 번째 값 사용
+        for candidate_cc in range(cc, 0, -1):
+            row = db.session.execute(text("""
+                SELECT ROUND(AVG((ps.cult_end_date - c.planting_date)::int)), COUNT(*)
+                FROM cultivations c
+                JOIN prod_summary ps ON c.cult_id = ps.cult_id
+                WHERE ps.cult_total_quantity > 0
+                  AND c.planting_date IS NOT NULL
+                  AND ps.cult_end_date IS NOT NULL
+                  AND (ps.cult_end_date - c.planting_date) BETWEEN 60 AND 600
+                  AND c.crop_cycle = :cc
+            """), {"cc": candidate_cc}).fetchone()
+            if row and row[0] is not None and row[1] >= min_samples:
+                if candidate_cc != cc:
+                    print(f"[CULT_DURATION] crop_cycle={cc} 샘플 부족 → crop_cycle={candidate_cc} 평균 사용: {row[0]}일 (n={row[1]}건)")
+                return float(row[0])
+    except Exception:
+        pass
+    return fallback
+
+
+# =========================================================
+# V4 생산량 feature 빌더 (재배 전체 기간 집계 — train_yield_model_v4 와 동일한 로직)
+# =========================================================
+def _build_v4_yield_feature_row(cult_id: int, bundle: dict, snap_day: Optional[int] = None) -> tuple[Optional[pd.DataFrame], Optional[str], Optional[float]]:
+    base = _get_base_cultivation_row(cult_id)
+    if not base:
+        return None, "재배 기본정보 없음", None
+
+    planting_date = pd.to_datetime(base.get("planting_date"), errors="coerce")
+    if pd.isna(planting_date):
+        return None, "정식일 없음", None
+
+    today_ts = pd.Timestamp(date.today())
+    env_df   = _get_env_slice(cult_id, planting_date, today_ts)
+    grow_df  = _get_growth_slice(cult_id, today_ts)
+
+    has_env = len(env_df) >= MIN_ENV_DAYS
+    if not has_env:
+        print(f"[YIELD V4] cult_id={cult_id} 환경데이터 부족({len(env_df)}일) — 훈련 중앙값으로 대체")
+
+    # ── 환경 피처 (데이터 있으면 통계, 없으면 NaN → imputer가 중앙값 대체) ──
+    if has_env:
+        env_df = env_df.sort_values("measure_date")
+        total_days = (env_df["measure_date"].max() - env_df["measure_date"].min()).days + 1
+    else:
+        total_days = np.nan
+
+    def _estats(col):
+        if not has_env:
+            return {f"{col}_mean": np.nan, f"{col}_std": np.nan,
+                    f"{col}_min": np.nan, f"{col}_max": np.nan}
+        s = pd.to_numeric(env_df[col], errors="coerce").dropna()
+        if len(s) == 0:
+            return {f"{col}_mean": np.nan, f"{col}_std": np.nan,
+                    f"{col}_min": np.nan, f"{col}_max": np.nan}
+        return {f"{col}_mean": s.mean(), f"{col}_std": s.std(),
+                f"{col}_min": s.min(),  f"{col}_max": s.max()}
+
+    env_feats = {"env_total_days": total_days}
+    for col in ["daily_in_temp", "daily_in_humidity", "daily_in_co2", "daily_acc_solar"]:
+        env_feats.update(_estats(col))
+
+    if has_env:
+        temp = pd.to_numeric(env_df["daily_in_temp"], errors="coerce")
+        env_feats["heat_days"]  = int((temp > 30).sum())
+        env_feats["cold_days"]  = int((temp < 10).sum())
+    else:
+        env_feats["heat_days"]  = np.nan
+        env_feats["cold_days"]  = np.nan
+    if has_env:
+        env_feats["rain_days"] = int(pd.to_numeric(env_df["daily_rain_detection"], errors="coerce").fillna(0).sum())
+        last_env = env_df.dropna(subset=["acc_temp"]).iloc[-1] if env_df["acc_temp"].notna().any() else None
+        env_feats["acc_temp_final"]  = float(last_env["acc_temp"])  if last_env is not None else np.nan
+        env_feats["acc_solar_final"] = float(last_env["acc_solar"]) if last_env is not None else np.nan
+        if total_days > 30:
+            late   = env_df[env_df["measure_date"] >= env_df["measure_date"].max() - pd.Timedelta(days=30)]
+            t_late = pd.to_numeric(late["daily_in_temp"], errors="coerce").dropna()
+            env_feats["late30_temp_mean"] = t_late.mean() if len(t_late) > 0 else np.nan
+        else:
+            env_feats["late30_temp_mean"] = np.nan
+    else:
+        env_feats["rain_days"]       = np.nan
+        env_feats["acc_temp_final"]  = np.nan
+        env_feats["acc_solar_final"] = np.nan
+        env_feats["late30_temp_mean"] = np.nan
+
+    # ── 생육 피처 (날짜별 평균 → 시계열 통계) ───────────────
+    GROW_COLS = ["plant_height", "growth_length", "leaf_count", "cluster_num",
+                 "fruits_per_cluster", "branch_width", "flowers_per_cluster", "blooming_per_cluster"]
+    grow_feats = {"grow_n_dates": 0, "grow_span_days": 0}
+    for c in GROW_COLS:
+        grow_feats.update({f"{c}_mean": np.nan, f"{c}_std": np.nan,
+                           f"{c}_final": np.nan, f"{c}_slope": np.nan})
+
+    if not grow_df.empty:
+        for c in GROW_COLS:
+            grow_df[c] = pd.to_numeric(grow_df[c], errors="coerce")
+        daily = grow_df.groupby("inspect_date")[GROW_COLS].mean().reset_index().sort_values("inspect_date")
+        n_dates = len(daily)
+        grow_feats["grow_n_dates"] = n_dates
+        if n_dates >= 2:
+            grow_feats["grow_span_days"] = (daily["inspect_date"].iloc[-1] - daily["inspect_date"].iloc[0]).days
+
+        for col in GROW_COLS:
+            s = daily[col].dropna()
+            if len(s) == 0:
+                continue
+            grow_feats[f"{col}_mean"]  = s.mean()
+            grow_feats[f"{col}_std"]   = s.std()
+            grow_feats[f"{col}_final"] = float(daily[col].dropna().iloc[-1])
+            valid = daily[["inspect_date", col]].dropna()
+            if len(valid) >= 3:
+                x = (valid["inspect_date"] - valid["inspect_date"].min()).dt.days.values
+                grow_feats[f"{col}_slope"] = np.polyfit(x, valid[col].values, 1)[0]
+
+    # ── 기본 재배 피처 ──────────────────────────────────────
+    area       = _to_float(base.get("planting_area"))
+    total_area = _to_float(base.get("total_area"))
+    pm         = planting_date.month
+
+    # cult_duration: 완료된 재배는 실제 기간, 진행 중이면 추천 출하일 사용
+    cult_end = base.get("cult_end_date")
+    if pd.notna(cult_end):
+        cult_duration = float((pd.to_datetime(cult_end) - planting_date).days)
+    else:
+        # 진행 중인 재배: 동일 작기 기준 평균 전체 재배기간 사용
+        # (95/105/115일은 가격 비교 시점이지 전체 재배기간이 아님)
+        crop_cycle_val = _to_float(base.get("crop_cycle"))
+        cult_duration = _get_expected_cult_duration(crop_cycle_val)
+
+    # v5: snap_day가 주어지면 cult_duration을 시나리오 일수로 오버라이드
+    if snap_day is not None:
+        cult_duration = float(snap_day)
+
+    row = {
+        "planting_area":    area,
+        "planting_density": _to_float(base.get("planting_density")),
+        "crop_cycle":       _to_float(base.get("crop_cycle")),
+        "survey_year":      _to_float(base.get("survey_year")) or float(date.today().year),
+        "area_ratio":       area / total_area if area and total_area and total_area > 0 else np.nan,
+        "planting_month":   float(pm),
+        "cult_duration":    cult_duration,
+        "house_type":       base.get("house_type"),
+        "house_form":       base.get("house_form"),
+        "region_l1":        base.get("region_l1"),
+        "planting_season":  _season_from_month(pm),
+    }
+    row.update(env_feats)
+    row.update(grow_feats)
+
+    num_feats = bundle.get("num_features", [])
+    cat_feats = bundle.get("cat_features", [])
+    for f in num_feats:
+        if f not in row:
+            row[f] = np.nan
+    for f in cat_feats:
+        if f not in row:
+            row[f] = None
+
+    return pd.DataFrame([row])[num_feats + cat_feats], None, cult_duration
+
+
+# =========================================================
+# 간단 생산량 feature 빌더 (env/growth 없이 재배 기본 정보만)
+# =========================================================
+def _build_simple_yield_feature_row(cult_id: int, snapshot_day: int) -> Optional[pd.DataFrame]:
+    base = _get_base_cultivation_row(cult_id)
+    if not base:
+        return None
+
+    planting_date = pd.to_datetime(base.get("planting_date"), errors="coerce")
+    if pd.isna(planting_date):
+        return None
+
+    survey_year = _to_float(base.get("survey_year")) or float(planting_date.year)
+    planting_area = _to_float(base.get("planting_area"))
+    total_area = _to_float(base.get("total_area"))
+
+    row = {
+        "crop_cycle": _to_float(base.get("crop_cycle")),
+        "planting_area": planting_area,
+        "planting_density": _to_float(base.get("planting_density")),
+        "survey_year": survey_year,
+        "total_area": total_area,
+        "farm_num": _to_float(base.get("farm_num")),
+        "first_survey_year": _to_float(base.get("first_survey_year")),
+        "planting_month": planting_date.month,
+        "snapshot_day": snapshot_day,
+        "area_ratio": (
+            planting_area / total_area
+            if planting_area and total_area and total_area > 0
+            else np.nan
+        ),
+        "item": base.get("item"),
+        "item_variety": base.get("item_variety"),
+        "house_type": base.get("house_type"),
+        "house_form": base.get("house_form"),
+        "region_l1": base.get("region_l1"),
+        "region_l2": base.get("region_l2"),
+        "planting_season": _season_from_month(planting_date.month),
+    }
+
+    return pd.DataFrame([row])
+
+
+# =========================================================
 # fallback 결과 생성
 # =========================================================
 def _build_fallback_result(
@@ -498,6 +801,7 @@ def _build_fallback_result(
 
     result = {
         "expected_harvest_date": expected_date,
+        "harvest_status": "finished" if days_passed > 130 else "active",
         "avg_days_to_peak_harvest": days_to_go,
         "avg_yield_per_m2": round(final_yield_total / area, 2) if area and area > 0 else 0,
         "expected_quantity": round(final_yield_total, 1),
@@ -525,6 +829,17 @@ def run_default_prediction(**kwargs) -> Dict[str, Any]:
     area = _to_float(kwargs.get("planting_area"), 0.0)
     p_date_str = kwargs.get("planting_date")
 
+    # cult_id만 전달된 경우 DB에서 기본 재배정보 보완
+    if cult_id and (not area or area <= 0 or not p_date_str):
+        _base = _get_base_cultivation_row(cult_id)
+        if _base:
+            if not area or area <= 0:
+                area = _to_float(_base.get("planting_area"), 0.0)
+            if not p_date_str:
+                _pd = _base.get("planting_date")
+                if _pd:
+                    p_date_str = str(_pd)[:10]
+
     try:
         p_date = datetime.strptime(p_date_str, "%Y-%m-%d").date() if p_date_str else date.today()
     except:
@@ -533,12 +848,11 @@ def run_default_prediction(**kwargs) -> Dict[str, Any]:
     days_passed = (date.today() - p_date).days
 
     # 1. 모델 및 기초 데이터 준비
-    model_p, path_p = _load_model(["v3_tomato_price_pipeline.joblib"])
-    model_y, path_y = _load_model(["yield_prediction_model.joblib"])
+    model_p,         path_p  = _load_model(["v7_tomato_price_pipelines.joblib", "v5_tomato_price_pipeline.joblib", "v4_tomato_price_pipeline.joblib"])
+    model_v4_bundle, path_v4 = _load_model(["v5_yield_pipeline.joblib", "v4_yield_pipeline.joblib"])
     df_market = _get_recent_market_data()
     latest_price = _get_latest_market_price()
 
-    candidates = [95, 105, 115]
     evaluation_results = []
 
     # 폴백 발생 여부를 추적하기 위한 변수
@@ -546,65 +860,111 @@ def run_default_prediction(**kwargs) -> Dict[str, Any]:
     fallback_reason = None
     fallback_message = "재배 및 환경데이터를 기반으로 계산되었습니다."
 
-    # 2. 루프 시작
+    # --- [B] 시나리오 분기: expected_cult_duration으로 candidates 결정 ---
+    yield_reason = None
+    expected_cult_duration = 284.0
+    if cult_id:
+        try:
+            _, _, _dur = _build_v4_yield_feature_row(int(cult_id), model_v4_bundle or {})
+            if _dur is not None:
+                expected_cult_duration = _dur
+        except Exception:
+            pass
+
+    if expected_cult_duration > 200:
+        candidates = [180, 220, 260]
+    else:
+        candidates = [100, 125, 150]
+    print(f"[CANDIDATES] cult_duration={expected_cult_duration:.0f}일 → 시나리오={candidates}")
+
+    # 2. 루프 시작 (가격 시나리오별)
     for days in candidates:
         target_date = datetime.combine(p_date + timedelta(days=days), datetime.min.time())
 
         # --- [A] 가격 예측 ---
-        final_price = 3500.0
-        if model_p and not df_market.empty:
+        ma30_price = latest_price
+        if not df_market.empty:
+            ma30_price = float(df_market["price_per_kg"].tail(30).mean())
+            if ma30_price <= 0:
+                ma30_price = latest_price
+
+        final_price = ma30_price
+        price_pipe = model_p.get(days) if isinstance(model_p, dict) else model_p
+        if price_pipe and not df_market.empty:
             try:
                 price_s = df_market["price_per_kg"]
                 temp_s = df_market["avg_temp"]
+                yoy_raw = float(price_s.iloc[-1]) / float(price_s.iloc[-365]) if len(price_s) >= 365 and float(price_s.iloc[-365]) > 0 else 1.0
+                lag90  = float(price_s.iloc[-90])  if len(price_s) >= 90  else float(price_s.iloc[0])
+                lag180 = float(price_s.iloc[-180]) if len(price_s) >= 180 else float(price_s.iloc[0])
+                ma30   = float(price_s.tail(30).mean())
+                ma90   = float(price_s.tail(90).mean())
+                curr_month  = date.today().month
+                target_month = target_date.month
+                target_doy   = target_date.timetuple().tm_yday
+                price_trend  = (ma30 - ma90) / ma90 if ma90 > 0 else 0.0
                 input_p = pd.DataFrame([{
-                    "MA_30D": price_s.tail(30).mean(),
-                    "MA_90D": price_s.tail(90).mean(),
-                    "YOY_RATIO": float(price_s.iloc[-1]) / price_s.iloc[-365] if len(price_s) >= 365 else 1.0,
+                    "MA_30D": ma30,
+                    "MA_90D": ma90,
+                    "YOY_RATIO": min(max(yoy_raw, 0.5), 1.5),
                     "GDD_30D": (temp_s.tail(30) - 10).clip(lower=0).sum(),
                     "TEMP_MA_30D": temp_s.tail(30).mean(),
-                    "WEEK_SIN": np.sin(2 * np.pi * target_date.isocalendar()[1] / 52),
-                    "WEEK_COS": np.cos(2 * np.pi * target_date.isocalendar()[1] / 52),
-                    "MONTH": target_date.month
+                    "PRICE_LAG_90D": lag90,
+                    "PRICE_LAG_180D": lag180,
+                    "CURRENT_MONTH_SIN": np.sin(2 * np.pi * curr_month / 12),
+                    "CURRENT_MONTH_COS": np.cos(2 * np.pi * curr_month / 12),
+                    "TARGET_MONTH_SIN": np.sin(2 * np.pi * target_month / 12),
+                    "TARGET_MONTH_COS": np.cos(2 * np.pi * target_month / 12),
+                    "TARGET_DOY_SIN":  np.sin(2 * np.pi * target_doy / 365),
+                    "TARGET_DOY_COS":  np.cos(2 * np.pi * target_doy / 365),
+                    "PRICE_MA_7D":     float(price_s.tail(7).mean()),
+                    "PRICE_TREND_30D": price_trend,
                 }])
-                final_price = float(np.expm1(model_p.predict(input_p)[0]))
-            except:
-                final_price = latest_price
-        if final_price <= 100: final_price = latest_price
-
-        # --- [B] 생산량 예측 ---
-        final_yield_total = 0.0
-        current_yield_reason = None
-
-        if model_y and cult_id:
-            try:
-                X_y, feature_error = _build_yield_feature_row(int(cult_id))
-                if X_y is not None:
-                    X_y["snapshot_day"] = _nearest_snapshot_day(days)
-                    final_yield_total = max(0.0, float(np.expm1(model_y.predict(X_y)[0])))
+                raw_pred = price_pipe.predict(input_p)[0]
+                predicted = float(np.expm1(raw_pred))
+                if predicted >= 500:
+                    final_price = predicted
                 else:
-                    current_yield_reason = "feature_unavailable"
-                    fallback_message = feature_error
-            except:
-                current_yield_reason = "predict_error"
+                    print(f"[PRICE MODEL] raw={raw_pred:.4f} → {predicted:.1f}원, 범위 외 — MA30 사용: {ma30_price:.0f}원")
+            except Exception as price_e:
+                print(f"[PRICE MODEL ERROR] {type(price_e).__name__}: {price_e}")
 
-        # 모델 예측 실패 시 폴백 적용
-        if final_yield_total <= 0:
-            final_yield_total = area * 30.0
-            is_fallback = True
-            if not current_yield_reason: current_yield_reason = "model_unavailable"
-            fallback_reason = current_yield_reason
+        # --- [B] 수확량 예측 (시나리오 일수별 누적 수확량) ---
+        snap_yield_total = area * 30.0 if area > 0 else 0.0  # 폴백
+        snap_yield_reason = "model_unavailable"
+        if cult_id and model_v4_bundle and isinstance(model_v4_bundle, dict):
+            yield_pipe = model_v4_bundle.get("model")
+            if yield_pipe:
+                try:
+                    X_y, y_err, _ = _build_v4_yield_feature_row(int(cult_id), model_v4_bundle, snap_day=days)
+                    if X_y is not None:
+                        per_area = float(yield_pipe.predict(X_y)[0])
+                        if per_area > 0 and area > 0:
+                            snap_yield_total  = per_area * area
+                            snap_yield_reason = None
+                            print(f"[YIELD V5] +{days}일 per_area={per_area:.2f} kg/평, total={snap_yield_total:.1f} kg")
+                        else:
+                            snap_yield_reason = "nonpositive"
+                    else:
+                        snap_yield_reason = "feature_unavailable"
+                        print(f"[YIELD SKIP] {y_err}")
+                except Exception as ye:
+                    snap_yield_reason = "predict_error"
+                    print(f"[YIELD ERROR] {type(ye).__name__}: {ye}")
 
         evaluation_results.append({
             "days": days,
             "date": target_date,
             "price": final_price,
-            "yield": final_yield_total,
-            "expected_sales": final_yield_total * final_price,
-            "reason": current_yield_reason
+            "yield": snap_yield_total,
+            "expected_sales": snap_yield_total * final_price,
+            "reason": snap_yield_reason
         })
 
     # 3. 최적 시점 결정
     best_option = max(evaluation_results, key=lambda x: x['expected_sales'])
+    is_fallback   = (best_option["reason"] is not None)
+    fallback_reason  = best_option["reason"]
 
     # 4. 결과 반환
     days_to_go = max(0, best_option["days"] - days_passed)
@@ -613,6 +973,7 @@ def run_default_prediction(**kwargs) -> Dict[str, Any]:
 
     result = {
         "expected_harvest_date": best_option["date"].date().isoformat(),
+        "harvest_status": "finished" if days_passed > 130 else "active",
         "avg_days_to_peak_harvest": days_to_go,
         "recommended_days_post_planting": best_option["days"],
         "avg_yield_per_m2": round(best_option["yield"] / area, 2) if area > 0 else 0,
@@ -624,9 +985,10 @@ def run_default_prediction(**kwargs) -> Dict[str, Any]:
             {"days": r["days"], "price": round(r["price"], 0), "yield": round(r["yield"], 1)}
             for r in evaluation_results
         ],
-        "price_day_95": next((r["price"] for r in evaluation_results if r["days"] == 95), 0),
-        "price_day_105": next((r["price"] for r in evaluation_results if r["days"] == 105), 0),
-        "price_day_115": next((r["price"] for r in evaluation_results if r["days"] == 115), 0),
+        # 하위 호환 필드 (DB 컬럼 매핑용, 실제 days는 comparison_data 참조)
+        "price_day_95":  round(evaluation_results[0]["price"], 0) if len(evaluation_results) > 0 else 0,
+        "price_day_105": round(evaluation_results[1]["price"], 0) if len(evaluation_results) > 1 else 0,
+        "price_day_115": round(evaluation_results[2]["price"], 0) if len(evaluation_results) > 2 else 0,
         "prediction_source": "fallback" if final_is_fallback else "optimized_model",
         "prediction_confidence": "low" if final_is_fallback else "medium",
         "prediction_message": fallback_message if final_is_fallback else f"수익 분석 결과, 정식 후 {best_option['days']}일째 출하를 추천합니다.",

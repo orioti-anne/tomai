@@ -36,3 +36,18 @@ runs/
 *.safetensors
 smartfarm/static/vision_output/*.mp4
 smartfarm/static/vision_output/*.jpg
+
+# venv, 로그, 백업 파일
+venv311/
+logs/
+app.log
+archive/
+*.bak
+
+# ML 학습 결과 산출물 (재생성 가능)
+smartfarm/ml/models/*.csv
+smartfarm/ml/models/*.png
+
+# 더 이상 안 쓰는 설정 / 내부 문서
+ecosystem.config.js
+docs/tomai_requirements.xlsx

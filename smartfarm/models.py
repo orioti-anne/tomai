@@ -256,6 +256,7 @@ class PredictionResults(db.Model):
     price_day_95 = db.Column(db.Float)
     price_day_105 = db.Column(db.Float)
     price_day_115 = db.Column(db.Float)
+    comparison_json = db.Column(db.Text)
     prediction_source = db.Column(db.String(20))
     prediction_confidence = db.Column(db.String(20))
     prediction_message = db.Column(db.Text)
