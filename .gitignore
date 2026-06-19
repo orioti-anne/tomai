@@ -51,3 +51,4 @@ smartfarm/ml/models/*.png
 # 더 이상 안 쓰는 설정 / 내부 문서
 ecosystem.config.js
 docs/tomai_requirements.xlsx
+Dockerfile.api
