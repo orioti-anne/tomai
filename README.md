@@ -20,6 +20,15 @@
 - Vision: YOLOv8 (Ultralytics)
 - External API: 기상청 Open API, KAMIS Open API
 
+## 모델 파일
+
+용량 문제로 학습된 모델 가중치(`*.joblib`, `*.pt`, `*.mlpackage`)는 저장소에 포함하지 않습니다. 아래 스크립트로 재생성하세요.
+
+- 시세 예측: `smartfarm/ml/train/train_price_model_v7.py`
+- 수확량 예측: `smartfarm/ml/train/train_yield_model_v5.py`
+- 환경 추천: `smartfarm/ml/train/train_env_recommendation_model.py`
+- Vision(YOLOv8): 별도의 라벨링된 이미지 데이터셋으로 학습 후 `smartfarm/dl/models/`에 배치. Apple Silicon 가속(CoreML) 변환은 `ultralytics`의 `YOLO(...).export(format='coreml')`를 이용하세요.
+
 ## 관련 저장소
 
 - [tomai-chat](https://github.com/orioti-anne/tomai-chat) — LLM 토마토 재배 상담 서버
